@@ -6,6 +6,11 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
 
 **`pdf-to-md`** — a subagent that converts PDF files to Markdown:
 
+- **Triggers automatically whenever a PDF is involved — no "convert" command
+  needed.** Attach a PDF and ask an unrelated question ("what's the total on
+  this invoice?", "summarize this") and Claude delegates to this agent first
+  to get the content as Markdown, then answers your actual question with it.
+  You never need to explicitly ask for a conversion.
 - Converts **one or more PDFs in a single request** — type/paste several
   paths, or attach multiple PDFs through the chat UI. Each file is
   converted independently, so one bad file doesn't stop the rest.
@@ -109,6 +114,17 @@ Claude should delegate to the `pdf-to-md` subagent and return the full
 Markdown content, including OCR'd Turkish text from the embedded image on
 page 2. Try it with more than one file too (e.g. attach the same PDF twice,
 or point at two different PDFs) to see the multi-file output.
+
+Also try it *without* asking for a conversion, to confirm the automatic
+trigger works:
+
+```
+What does examples/sample-turkish.pdf say about the weather?
+```
+
+Claude should still delegate to `pdf-to-md` first to get the content, then
+answer the actual question from it — you shouldn't need to say "convert" or
+"read" at all.
 
 The subagent's reply always starts with the line
 `[claude-ecosystem:pdf-to-md ran]` — that's your confirmation it actually
