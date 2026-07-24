@@ -68,7 +68,11 @@ After Round 3 is completed, before moving to the summary step, ask the following
    - Medium (4-8 sources/search)
    - In-depth (8-20+ sources/search, comprehensive)
 
-These two questions can be asked together in the same `ask_user_input_v0` call (the tool allows at most 3 questions per call). These two preferences are included in the summary that follows immediately, and the user can also change them while confirming the summary.
+3. **Critique panel** — "Should the 5-agent critique panel review the final answer before it's delivered?"
+   - Yes
+   - No
+
+These three questions can be asked together in the same `ask_user_input_v0` call (the tool allows at most 3 questions per call). These preferences are included in the summary that follows immediately, and the user can also change them while confirming the summary.
 
 ## Summary and confirmation
 
@@ -96,6 +100,14 @@ After confirmation, apply the following internal analysis process. This process 
 3. **Contradiction detection:** Check whether there are contradictions among the sub-part answers (e.g., does the conclusion of one sub-answer contradict the premise of another sub-answer).
 4. **Resolution through in-depth questioning:** If a contradiction is detected, re-examine the conflicting points (additional analysis, additional source research, or asking the user a clarifying question if necessary) and resolve the contradiction. If multiple contradictions are detected, handle each one separately and repeat this step for each, up to a maximum of **3 rounds** (3 rounds for one contradiction doesn't affect the limit for another). If a contradiction still isn't resolved after 3 rounds, stop the internal analysis process specifically for that contradiction and ask the user: **"There's still a contradiction at this point: [short summary of the contradiction]. How should we proceed?"** — continue based on the user's direction.
 5. **Merging:** Merge the verified sub-answers, with contradictions resolved, into a single, coherent final answer.
+6. **Critique panel (only if "Yes" was selected in the Critique panel preference):** Spawn these 5 subagents in parallel via the `Agent` tool, one call per role, `run_in_background: false` on all 5 so their results are available immediately rather than arriving later as background notifications — the main agent must have all 5 critiques in hand before it can proceed to synthesis:
+   - `ask-me-devils-advocate`
+   - `ask-me-first-principles-thinker`
+   - `ask-me-opportunity-hunter`
+   - `ask-me-outside-eye`
+   - `ask-me-practitioner`
+
+   Each role's instructions live in its own agent definition (`agents/ask-me-*.md`) — the prompt for each call only needs to carry the original question and the full merged answer from step 5, not the role description itself. Each subagent works independently and does not see the other four's critiques (no cross-review, no separate "chairman" agent). Once all 5 return, the main agent reads all 5 critiques and revises the final answer where warranted, using its own judgment to weigh conflicting critiques. This is a single pass — the revised answer is not sent back through the panel again. The 5 critiques themselves are internal and are never shown to the user in raw form; if a critique meaningfully changed the answer, at most a short one- or two-sentence note may be woven into the relevant section of the final answer.
 
 ## Final answer
 
@@ -115,7 +127,8 @@ Present the final answer to the user with these rules:
 - Don't change or skip the round order (unless the user explicitly asks).
 - Never offer options/buttons in Round 1; ask_user_input_v0 can be used in Round 2, Round 3, the Source preferences step, and the correction loop in the Summary — never in Round 1.
 - The minimum-3-question requirement in Round 1 only relaxes if the user has already thoroughly explained the relevant areas in their first message; otherwise the minimum-3-question rule applies.
-- Source type and search depth questions are not asked in Round 2; these two questions are asked in a separate step (single_select) after Round 3 is completed, before the summary, and are never skipped.
+- Source type, search depth, and critique-panel questions are not asked in Round 2; these three questions are asked in a separate step (single_select) after Round 3 is completed, before the summary, and are never skipped.
+- The critique panel only runs if "Yes" was selected for it in the approved summary. When it runs, it is a single pass (5 parallel, mutually-blind subagents critiquing the merged answer once, no re-review loop) and its raw output is never shown to the user.
 - Round 3 must always be single-select, and its result (whether a contradiction is found or not) must always be reported to the user in at least one sentence; never skip this step silently.
 - Don't start the analysis process until the summary is approved and a separate "should I start?" confirmation is obtained.
 - The contradiction-resolution loop in the analysis process is limited to at most 3 rounds; if a contradiction still remains after 3 rounds, ask the user — don't proceed silently.

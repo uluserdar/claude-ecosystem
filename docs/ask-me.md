@@ -57,12 +57,14 @@ this check is never skipped silently.
 
 ### Source preferences
 
-Two quick single-select questions:
+Three quick single-select questions:
 
 1. **Source type** — official sources only / official + trusted
    community & technical blogs / general sources.
 2. **Search depth** — quick (1–3 sources per search) / medium (4–8) /
    deep (8–20+, comprehensive).
+3. **Critique panel** — whether a 5-agent critique panel should review
+   the final answer before it's delivered (yes/no).
 
 ### Summary and approval
 
@@ -86,6 +88,17 @@ separate, explicit "go ahead" does the actual analysis start.
    proceed, rather than picking a side silently.
 5. **Synthesis** — the verified, contradiction-free sub-answers are
    merged into one coherent final answer.
+6. **Critique panel** *(only if you opted in)* — 5 independent
+   subagents, each with a fixed role, review the merged answer in
+   parallel without seeing each other's critiques: a **Devil's
+   Advocate** (what could go wrong), a **First-Principles Thinker**
+   (is this the right problem), an **Opportunity Hunter** (what's being
+   overlooked), an **Outside Eye** (a fresh, independent read), and a
+   **Practitioner** (how to test this with the lowest risk). The main
+   agent then weighs all 5 critiques and revises the answer where
+   warranted — a single pass, not a loop. The critiques themselves stay
+   internal; at most a short note makes it into the final answer if one
+   of them changed something material.
 
 ## The final answer
 
@@ -111,3 +124,6 @@ separate, explicit "go ahead" does the actual analysis start.
   separate final go-ahead.
 - Contradiction resolution during analysis is capped at 3 rounds per
   contradiction before it's escalated back to you.
+- The critique panel is opt-in, runs once (no re-review loop), and its
+  5 raw critiques are never shown to you — only their effect on the
+  final answer, if any.

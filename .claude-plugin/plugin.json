@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "claude-ecosystem",
   "displayName": "Claude Ecosystem",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "A growing personal collection of Claude Code agents and skills.",
   "author": {
     "name": "Serdar Uludag"
