@@ -4,8 +4,8 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
 
 ## What's in here right now
 
-Nothing yet — this is a clean plugin/marketplace shell, ready for the first
-agent or skill to be added.
+One skill so far — [`ask-me`](#skills), see below. This started as a clean
+plugin/marketplace shell, ready for the first agent or skill to be added.
 
 A PDF-to-Markdown subagent (`pdf-to-md`) was built and tested here first,
 but was removed: forcing every PDF interaction through a subagent (via a
@@ -17,6 +17,27 @@ multimodal message content, so there was no reliable way to route it
 through a subagent anyway. Letting the main agent handle PDFs directly,
 with no plugin involvement, works better in practice.
 
+## Skills
+
+### `ask-me`
+
+Turns a question into a deeply researched, contradiction-checked, sourced
+final answer instead of a quick reply. It's an evolved version of a
+prompt-generator pattern — but instead of outputting a prompt, it outputs
+the actual answer.
+
+It works through a structured, multi-round interview (free-text discovery,
+then multiple-choice scoping, then a dedicated contradiction check and a
+source-preference step) before it writes anything, then runs an internal
+divide-and-verify analysis pass, and finally delivers the answer both in
+chat and as a downloadable `.md` file.
+
+Use it for questions that are complex, multi-part, research-heavy, or
+where the answer could easily contain internal contradictions — not for
+things with a quick, direct answer.
+
+[![Learn more](https://img.shields.io/badge/Learn%20more-how%20ask--me%20works-blue)](docs/ask-me.md)
+
 ## Repository structure
 
 ```
@@ -24,7 +45,11 @@ claude-ecosystem/
 ├── .claude-plugin/
 │   ├── plugin.json          # plugin metadata
 │   └── marketplace.json     # marketplace catalog listing this plugin
-├── skills/                  # reserved for future skills — currently empty
+├── skills/
+│   └── ask-me/
+│       └── SKILL.md         # ask-me skill definition
+├── docs/
+│   └── ask-me.md            # how ask-me works, in plain terms
 ├── LICENSE                  # MIT
 └── README.md
 ```
