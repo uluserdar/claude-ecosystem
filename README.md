@@ -21,35 +21,45 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
   Python script (`scripts/pdf_to_md.py`) rather than doing the text
   understanding itself.
 
-## Prerequisites
+## Setup: fully automatic
 
-- **Python 3.9+** (developed and tested against 3.11).
-- **Tesseract OCR**, with the Turkish (`tur`) language pack, on your `PATH`.
-  Only needed for the OCR fallback path — plain text-layer PDFs work without
-  it.
+**You don't need to install or run anything by hand.** The moment this
+plugin is enabled, a `SessionStart` hook (`hooks/hooks.json` →
+`scripts/bootstrap.sh`) runs automatically and:
 
-Install Tesseract + the Turkish language pack:
+1. Installs the pinned Python packages (PyMuPDF, pytesseract, Pillow) into
+   the plugin's own data directory — not your system Python.
+2. Installs the Tesseract OCR binary via your platform's package manager
+   (winget / Homebrew / apt / dnf) if it isn't already on `PATH`.
+3. Downloads English and Turkish language data
+   (`eng.traineddata`, `tur.traineddata`) into the plugin's own data
+   directory and points OCR at that copy directly.
 
-| Platform | Command |
-| --- | --- |
-| macOS (Homebrew) | `brew install tesseract tesseract-lang` |
-| Debian / Ubuntu | `sudo apt-get install tesseract-ocr tesseract-ocr-tur` |
-| Fedora | `sudo dnf install tesseract tesseract-langpack-tur` |
-| Windows | `winget install --id UB-Mannheim.TesseractOCR`, or download the installer from the [UB-Mannheim Tesseract wiki](https://github.com/UB-Mannheim/tesseract/wiki) and select the Turkish language component during setup |
+Step 3 exists because the Windows Tesseract installer [can't select
+language components in silent/unattended mode](https://github.com/UB-Mannheim/tesseract/issues/91)
+— so relying on the system package manager for the Turkish language pack
+specifically is unreliable on Windows. Managing our own copy sidesteps
+that entirely and works identically on every platform.
 
-Package names occasionally change between distro versions — if a command
-above fails, search your package manager for `tesseract` and the language
-pack separately (e.g. `apt search tesseract-ocr-tur`).
+Every step is idempotent and cached, so only the very first session after
+install does any real work; every session after that is a fast no-op check.
+Nothing here needs admin/root rights — everything installs into
+`${CLAUDE_PLUGIN_DATA}` (a directory you already own), except the Tesseract
+binary itself, which needs your platform's normal package-manager
+permissions (passwordless on macOS/Windows via Homebrew/winget; on Linux,
+only if passwordless `sudo` is available, otherwise you'll see a one-line
+warning with the manual install command).
 
-Then install the pinned Python dependencies and verify the Tesseract setup:
+If a step can't complete automatically (no package manager found, no
+`sudo`, offline, etc.), you'll see a `pdf-to-md setup: WARNING - ...` line
+with the exact manual command to run instead — nothing fails silently.
 
-```bash
-./install.sh
-```
+**Manual / standalone setup** (only if you're working with this repo
+outside Claude Code, or troubleshooting): run `./install.sh`, which calls
+the same `scripts/bootstrap.sh` logic against this checkout directly.
 
-`install.sh` installs `requirements.txt` and checks that `tesseract` and its
-Turkish language data are on `PATH`, printing platform-specific install
-instructions if either is missing.
+**Prerequisite:** Python 3.9+ needs to already be on `PATH` — bootstrapping
+Python itself is out of scope.
 
 ## Install this plugin in Claude Code
 
@@ -92,27 +102,55 @@ Claude should delegate to the `pdf-to-md` subagent and return the full
 Markdown content, including OCR'd Turkish text from the embedded image on
 page 2.
 
-You can also run the conversion script directly, without Claude Code, and
-run the Turkish round-trip check:
+You can also run the conversion script directly, without Claude Code, after
+running `./install.sh`:
 
 ```bash
-python scripts/pdf_to_md.py examples/sample-turkish.pdf
-python scripts/test_turkish_roundtrip.py
+./install.sh
+PDF_TO_MD_PYLIBS_DIR="$(pwd)/.plugin-data/pylibs" \
+PDF_TO_MD_TESSDATA_DIR="$(pwd)/.plugin-data/tessdata" \
+  python scripts/pdf_to_md.py examples/sample-turkish.pdf
+
+PDF_TO_MD_PYLIBS_DIR="$(pwd)/.plugin-data/pylibs" \
+PDF_TO_MD_TESSDATA_DIR="$(pwd)/.plugin-data/tessdata" \
+  python scripts/test_turkish_roundtrip.py
 ```
 
 ## How it works
 
 `agents/pdf-to-md.md` defines the subagent: it validates the input path,
-shells out to `scripts/pdf_to_md.py`, and passes the script's output straight
-through (or forwards an `ERROR: ...` message on failure). All the actual PDF
-parsing, text-extraction, garbled-text detection, and OCR logic lives in the
-Python script, not in the model — this keeps conversion deterministic and
-keeps a cheap model (`haiku`) sufficient for the agent itself.
+shells out to `scripts/pdf_to_md.py` (pointing it at the auto-installed
+dependencies via two environment variables), and passes the script's output
+straight through (or forwards an `ERROR: ...` message on failure). All the
+actual PDF parsing, text-extraction, garbled-text detection, and OCR logic
+lives in the Python script, not in the model — this keeps conversion
+deterministic and keeps a cheap model (`haiku`) sufficient for the agent
+itself.
 
 `scripts/pdf_to_md.py` uses [PyMuPDF](https://pymupdf.readthedocs.io/) for
 both text extraction and page rendering (no separate Poppler/`pdf2image`
 dependency is needed), and [pytesseract](https://github.com/madmaze/pytesseract)
-for OCR.
+for OCR. Two environment variables (set automatically by the agent, and
+produced by `scripts/bootstrap.sh`) let it use the auto-installed
+dependencies instead of whatever is on the system:
+
+| Variable | Purpose |
+| --- | --- |
+| `PDF_TO_MD_PYLIBS_DIR` | Added to `sys.path` before importing PyMuPDF/pytesseract/Pillow |
+| `PDF_TO_MD_TESSDATA_DIR` | Set as `TESSDATA_PREFIX` so OCR uses the bundled `eng`+`tur` language data |
+
+The script also checks a couple of well-known install paths directly if
+`tesseract` isn't resolvable via `PATH` yet — on Windows, a just-installed
+binary's `PATH` update doesn't reach a process (Claude Code included) that
+was already running before the install happened, only new ones, so waiting
+for `shutil.which` alone would fail on the very first use after install.
+
+Before running OCR, the script also proactively checks that the Turkish
+language pack is actually available (`pytesseract.get_languages()`) rather
+than trusting Tesseract to error when it's missing — some Tesseract builds
+silently OCR with only the languages that *are* available and return
+plausible-but-wrong text with no warning at all when `tur` is absent. This
+check turns that into an explicit `ERROR:` instead.
 
 **Timeout / large documents:** the script tracks wall-clock time across
 pages and aborts with `ERROR: processing timed out after <N>s ...` if a
@@ -140,7 +178,9 @@ This plugin is meant to grow. To add a new agent, drop a `.md` file in
 `agents/`. To add a new skill, add a `<skill-name>/SKILL.md` directory under
 `skills/`. Both are picked up automatically — nothing else in
 `.claude-plugin/plugin.json` or `.claude-plugin/marketplace.json` needs to
-change for a new agent or skill to be discovered.
+change for a new agent or skill to be discovered. If a future agent needs
+its own setup, extend `hooks/hooks.json`'s `SessionStart` entry (or add a
+second one) rather than asking users to run something manually.
 
 ## License
 

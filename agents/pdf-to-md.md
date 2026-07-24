@@ -23,9 +23,11 @@ Follow these steps exactly:
    the Read tool). If the file is missing or not a `.pdf`, reply with:
    `ERROR: <specific reason>` and stop. Do not attempt to run the script.
 
-2. **Run the script.** Execute:
+2. **Run the script.** Execute, as one Bash command (this points the script
+   at the dependencies the plugin's SessionStart hook already installed
+   automatically — the user should never need to install anything by hand):
    ```
-   python "${CLAUDE_PLUGIN_ROOT}/scripts/pdf_to_md.py" "<absolute-path-to-pdf>"
+   PDF_TO_MD_PYLIBS_DIR="${CLAUDE_PLUGIN_DATA}/pylibs" PDF_TO_MD_TESSDATA_DIR="${CLAUDE_PLUGIN_DATA}/tessdata" python "${CLAUDE_PLUGIN_ROOT}/scripts/pdf_to_md.py" "<absolute-path-to-pdf>"
    ```
    Use the Bash tool. Do not pass any other arguments and do not modify the
    script's output in any way.

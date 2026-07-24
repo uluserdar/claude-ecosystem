@@ -1,50 +1,22 @@
 #!/usr/bin/env bash
-# Installs Python dependencies for the pdf-to-md agent and checks that
-# Tesseract OCR (with the Turkish language pack) is available on PATH.
+# Manual/standalone entry point for setup.
+#
+# If this repo is installed as a Claude Code plugin, you do NOT need to run
+# this: scripts/bootstrap.sh runs automatically as a SessionStart hook the
+# moment the plugin is enabled, and re-runs (cheaply, idempotently) every
+# session after that. This script exists only for people working with the
+# repo directly (outside Claude Code) or troubleshooting -- it just calls
+# bootstrap.sh with CLAUDE_PLUGIN_ROOT/CLAUDE_PLUGIN_DATA pointed at this
+# checkout instead of the plugin cache.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "==> Installing Python dependencies from requirements.txt"
-python3 -m pip install -r "${SCRIPT_DIR}/requirements.txt" || \
-  python -m pip install -r "${SCRIPT_DIR}/requirements.txt"
+export CLAUDE_PLUGIN_ROOT="${SCRIPT_DIR}"
+export CLAUDE_PLUGIN_DATA="${SCRIPT_DIR}/.plugin-data"
 
-echo "==> Checking for Tesseract OCR"
-if ! command -v tesseract >/dev/null 2>&1; then
-  cat <<'EOF'
+"${SCRIPT_DIR}/scripts/bootstrap.sh"
 
-ERROR: Tesseract OCR was not found on your PATH.
-pdf-to-md needs it to read text embedded in images.
-
-Install it, then re-run this script:
-  macOS:            brew install tesseract tesseract-lang
-  Debian/Ubuntu:     sudo apt-get install tesseract-ocr tesseract-ocr-tur
-  Fedora:            sudo dnf install tesseract tesseract-langpack-tur
-  Windows:           winget install --id UB-Mannheim.TesseractOCR
-                      (or download the installer from
-                      https://github.com/UB-Mannheim/tesseract/wiki and
-                      add its install directory to PATH)
-
-EOF
-  exit 1
-fi
-
-echo "==> Checking for the Turkish ('tur') language pack"
-if ! tesseract --list-langs 2>&1 | grep -qx "tur"; then
-  cat <<'EOF'
-
-ERROR: Tesseract is installed, but the Turkish ("tur") language pack is
-missing. Install it, then re-run this script:
-  macOS:            brew install tesseract-lang
-  Debian/Ubuntu:     sudo apt-get install tesseract-ocr-tur
-  Fedora:            sudo dnf install tesseract-langpack-tur
-  Windows:           re-run the Tesseract installer and select the
-                      Turkish language component, or copy tur.traineddata
-                      into the tessdata/ folder of your Tesseract install.
-
-EOF
-  exit 1
-fi
-
-echo "==> All dependencies are installed."
-echo "==> Try it: python3 scripts/pdf_to_md.py examples/sample-turkish.pdf"
+echo
+echo "==> Try it:"
+echo "    PDF_TO_MD_PYLIBS_DIR=\"${CLAUDE_PLUGIN_DATA}/pylibs\" PDF_TO_MD_TESSDATA_DIR=\"${CLAUDE_PLUGIN_DATA}/tessdata\" python3 scripts/pdf_to_md.py examples/sample-turkish.pdf"

@@ -13,10 +13,24 @@ Usage:
 On success, prints the full Markdown to stdout and exits 0.
 On failure, prints a single line starting with "ERROR: " to stderr and
 exits 1. This script never dumps a raw stack trace as its only output.
+
+Two environment variables let a caller point this script at dependencies
+that scripts/bootstrap.sh installed automatically (as a plugin SessionStart
+hook) instead of the system Python/Tesseract install:
+    PDF_TO_MD_PYLIBS_DIR    directory with `pip install --target`-installed
+                            packages (PyMuPDF, pytesseract, Pillow), added to
+                            sys.path before those modules are imported.
+    PDF_TO_MD_TESSDATA_DIR  directory with eng.traineddata/tur.traineddata,
+                            passed to Tesseract as --tessdata-dir so OCR
+                            works even when the system Tesseract install has
+                            no Turkish language pack.
+Both are optional; when unset, the system Python packages and the system
+Tesseract's own tessdata directory are used.
 """
 
 import io
 import os
+import shutil
 import sys
 import time
 
@@ -24,6 +38,18 @@ DEFAULT_TIMEOUT_SECONDS = 300
 OCR_LANGUAGES = "eng+tur"
 GARBLED_REPLACEMENT_RATIO = 0.05
 OCR_RENDER_ZOOM = 2.0  # ~144 DPI when rendering a page for whole-page OCR
+
+# A binary installed by bootstrap.sh moments ago may not be on PATH yet in
+# an already-running process: on Windows in particular, an installer's PATH
+# update doesn't reach processes started earlier in the same login session
+# (Claude Code included), only new ones. Check well-known install locations
+# directly rather than making the user restart Claude Code after first use.
+KNOWN_TESSERACT_LOCATIONS = [
+    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    "/opt/homebrew/bin/tesseract",
+    "/usr/local/bin/tesseract",
+]
 
 
 class ConversionError(Exception):
@@ -34,27 +60,66 @@ def _log_progress(message):
     print(message, file=sys.stderr, flush=True)
 
 
+def _locate_tesseract_cmd():
+    """Absolute path to a just-installed tesseract binary that isn't on
+    PATH yet in this process, or None if PATH resolution already works."""
+    if shutil.which("tesseract"):
+        return None
+    for candidate in KNOWN_TESSERACT_LOCATIONS:
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def _apply_tessdata_override():
+    """Point Tesseract at bootstrap.sh's own language-data copy, if present
+    and complete, via the TESSDATA_PREFIX environment variable.
+
+    This is set as an env var rather than passed as a `--tessdata-dir "..."`
+    string in pytesseract's `config` kwarg because pytesseract splits that
+    string on whitespace without shell-style quote handling: a quoted path
+    comes out with the literal quote characters still attached (breaking
+    the path) rather than being treated as one token. TESSDATA_PREFIX has
+    no such issue and needs no quoting.
+    """
+    tessdata_dir = os.environ.get("PDF_TO_MD_TESSDATA_DIR")
+    if not tessdata_dir:
+        return
+    if not (
+        os.path.isfile(os.path.join(tessdata_dir, "eng.traineddata"))
+        and os.path.isfile(os.path.join(tessdata_dir, "tur.traineddata"))
+    ):
+        return
+    os.environ["TESSDATA_PREFIX"] = tessdata_dir
+
+
 def _import_dependencies():
+    pylibs_dir = os.environ.get("PDF_TO_MD_PYLIBS_DIR")
+    if pylibs_dir and os.path.isdir(pylibs_dir) and pylibs_dir not in sys.path:
+        sys.path.insert(0, pylibs_dir)
+
+    setup_hint = (
+        "Run scripts/bootstrap.sh, or install manually: pip install -r requirements.txt"
+    )
+
     try:
         import fitz  # PyMuPDF
     except ImportError as exc:
-        raise ConversionError(
-            "PyMuPDF is not installed. Run: pip install -r requirements.txt"
-        ) from exc
+        raise ConversionError(f"PyMuPDF is not installed. {setup_hint}") from exc
 
     try:
         import pytesseract
     except ImportError as exc:
-        raise ConversionError(
-            "pytesseract is not installed. Run: pip install -r requirements.txt"
-        ) from exc
+        raise ConversionError(f"pytesseract is not installed. {setup_hint}") from exc
+
+    tesseract_cmd = _locate_tesseract_cmd()
+    if tesseract_cmd:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
 
     try:
         from PIL import Image
     except ImportError as exc:
-        raise ConversionError(
-            "Pillow is not installed. Run: pip install -r requirements.txt"
-        ) from exc
+        raise ConversionError(f"Pillow is not installed. {setup_hint}") from exc
 
     return fitz, pytesseract, Image
 
@@ -69,7 +134,41 @@ def _is_garbled(text):
     return bad / len(text) > GARBLED_REPLACEMENT_RATIO
 
 
+_turkish_availability_checked = False
+
+
+def _ensure_turkish_language_available(pytesseract):
+    """Some Tesseract builds don't error when a requested language's data is
+    missing -- they silently OCR with whatever languages ARE available and
+    return plausible-looking but wrong text (observed directly: with no
+    tur.traineddata anywhere, `lang="eng+tur"` returned English-only text
+    misreading every Turkish character, with no error or warning at all).
+    Checking language availability ourselves, once, makes a missing Turkish
+    pack a clear ERROR instead of silently wrong output the user might not
+    notice.
+    """
+    global _turkish_availability_checked
+    if _turkish_availability_checked:
+        return
+    try:
+        available = set(pytesseract.get_languages(config=""))
+    except Exception:
+        # If Tesseract itself is broken/missing, image_to_string below will
+        # raise a clearer, specific error -- nothing more to check here.
+        return
+    if "tur" not in available:
+        raise ConversionError(
+            "Tesseract is missing the Turkish (\"tur\") language pack "
+            f"(available: {', '.join(sorted(available)) or 'none'}). "
+            "Run scripts/bootstrap.sh, or see README.md for manual install "
+            "instructions."
+        )
+    _turkish_availability_checked = True
+
+
 def _ocr_image_bytes(pytesseract, Image, image_bytes):
+    _apply_tessdata_override()
+    _ensure_turkish_language_available(pytesseract)
     with Image.open(io.BytesIO(image_bytes)) as img:
         img = img.convert("RGB")
         try:
@@ -79,12 +178,16 @@ def _ocr_image_bytes(pytesseract, Image, image_bytes):
             if "is not installed" in message or "tesseract is not installed" in message.lower():
                 raise ConversionError(
                     "Tesseract OCR is not installed or not on PATH. "
-                    "See README.md for platform-specific install instructions."
+                    "It should install automatically the next time the plugin's "
+                    "SessionStart hook runs (scripts/bootstrap.sh); if it doesn't, "
+                    "see README.md for manual install instructions."
                 ) from exc
             if "Failed loading language" in message or "tur.traineddata" in message:
                 raise ConversionError(
-                    "Tesseract is missing the Turkish (\"tur\") language pack. "
-                    "See README.md for how to install it on your platform."
+                    "Tesseract is missing the Turkish (\"tur\") language pack, and "
+                    "no PDF_TO_MD_TESSDATA_DIR fallback copy was found either. "
+                    "Run scripts/bootstrap.sh, or see README.md for manual install "
+                    "instructions."
                 ) from exc
             raise ConversionError(f"OCR failed: {message}") from exc
     return text.strip()

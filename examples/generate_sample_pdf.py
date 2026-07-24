@@ -74,18 +74,24 @@ def main():
             "Liberation). Install one or add its path to _find_unicode_font()."
         )
     page1 = doc.new_page()
-    page1.insert_text(
-        (50, 100),
+    # insert_textbox wraps within the rect; insert_text at a bare point does
+    # not wrap and silently drops whatever runs past the page edge -- the
+    # sentence used to get cut off mid-word before this fix.
+    text_rect = fitz.Rect(50, 72, page1.rect.width - 50, 400)
+    overflow = page1.insert_textbox(
+        text_rect,
         TEXT_LAYER_TURKISH,
         fontsize=14,
         fontfile=font_path,
         fontname="F0",
     )
+    if overflow < 0:
+        raise SystemExit("Sample text overflowed its text box; widen text_rect.")
 
     # Page 2: an embedded image containing Turkish text, no text layer.
     page2 = doc.new_page()
     image_bytes = build_image_with_text()
-    rect = fitz.Rect(50, 100, 750, 260)
+    rect = fitz.Rect(30, 100, page2.rect.width - 30, 260)
     page2.insert_image(rect, stream=image_bytes)
 
     doc.save(OUTPUT_PATH)
