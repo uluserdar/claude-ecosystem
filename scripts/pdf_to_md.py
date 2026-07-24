@@ -8,11 +8,28 @@ embedded images is OCR'd separately and inserted inline; the images
 themselves are never saved and no captions or links are added.
 
 Usage:
-    python pdf_to_md.py <path-to-pdf>
+    python pdf_to_md.py <path-to-pdf> [more-paths.pdf ...]
 
-On success, prints the full Markdown to stdout and exits 0.
-On failure, prints a single line starting with "ERROR: " to stderr and
-exits 1. This script never dumps a raw stack trace as its only output.
+One or more PDF paths may be given; each is converted independently, so one
+bad file (corrupted, encrypted, timed out) doesn't stop the others. Results
+print to stdout, one block per file, delimited so a caller can tell exactly
+where one file's content ends and the next begins even if the Markdown
+itself contains lines that look like headers or separators:
+
+    ===PDF-TO-MD-FILE-START===<path-as-given-on-the-command-line>
+    STATUS: OK
+    <the full Markdown for this file>
+    ===PDF-TO-MD-FILE-END===
+
+    ===PDF-TO-MD-FILE-START===<path-as-given-on-the-command-line>
+    STATUS: ERROR
+    <error message for this file>
+    ===PDF-TO-MD-FILE-END===
+
+Exit code is 0 only if every file succeeded; 1 if any file failed (the
+per-file STATUS line is what says which). A malformed invocation (no paths
+at all) prints a single "ERROR: " line to stderr instead, with no file
+blocks. This script never dumps a raw stack trace as its only output.
 
 Two environment variables let a caller point this script at dependencies
 that scripts/bootstrap.sh installed automatically (as a plugin SessionStart
@@ -281,26 +298,41 @@ def convert_pdf_to_markdown(pdf_path, timeout_seconds=DEFAULT_TIMEOUT_SECONDS):
     return markdown
 
 
+FILE_START_MARKER = "===PDF-TO-MD-FILE-START==="
+FILE_END_MARKER = "===PDF-TO-MD-FILE-END==="
+
+
 def main(argv):
-    if len(argv) != 2:
-        print("ERROR: usage: pdf_to_md.py <path-to-pdf>", file=sys.stderr)
+    if len(argv) < 2:
+        print("ERROR: usage: pdf_to_md.py <path-to-pdf> [more-paths.pdf ...]", file=sys.stderr)
         return 1
 
-    pdf_path = argv[1]
+    pdf_paths = argv[1:]
     timeout_seconds = int(os.environ.get("PDF_TO_MD_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS))
-
-    try:
-        markdown = convert_pdf_to_markdown(pdf_path, timeout_seconds=timeout_seconds)
-    except ConversionError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 1
-    except Exception as exc:  # last-resort guard: never let a raw traceback be the only output
-        print(f"ERROR: unexpected failure during conversion: {exc}", file=sys.stderr)
-        return 1
-
     sys.stdout.reconfigure(encoding="utf-8")
-    sys.stdout.write(markdown)
-    return 0
+    any_failed = False
+
+    for index, pdf_path in enumerate(pdf_paths, start=1):
+        if len(pdf_paths) > 1:
+            _log_progress(f"=== File {index}/{len(pdf_paths)}: {pdf_path} ===")
+
+        try:
+            markdown = convert_pdf_to_markdown(pdf_path, timeout_seconds=timeout_seconds)
+            status, body = "OK", markdown
+        except ConversionError as exc:
+            status, body = "ERROR", str(exc)
+        except Exception as exc:  # last-resort guard: never let a raw traceback be the only output
+            status, body = "ERROR", f"unexpected failure during conversion: {exc}"
+
+        if status == "ERROR":
+            any_failed = True
+
+        sys.stdout.write(f"{FILE_START_MARKER}{pdf_path}\n")
+        sys.stdout.write(f"STATUS: {status}\n")
+        sys.stdout.write(body if body.endswith("\n") else body + "\n")
+        sys.stdout.write(f"{FILE_END_MARKER}\n")
+
+    return 1 if any_failed else 0
 
 
 if __name__ == "__main__":

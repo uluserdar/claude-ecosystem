@@ -4,8 +4,14 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
 
 ## What's in here right now
 
-**`pdf-to-md`** — a subagent that converts a PDF file to Markdown:
+**`pdf-to-md`** — a subagent that converts PDF files to Markdown:
 
+- Converts **one or more PDFs in a single request** — type/paste several
+  paths, or attach multiple PDFs through the chat UI. Each file is
+  converted independently, so one bad file doesn't stop the rest.
+- Handles **only** `.pdf` files. If a request mixes PDFs with other file
+  types (`.docx`, `.txt`, images, ...), only the `.pdf` paths go to this
+  subagent — the rest stay with the calling agent to handle directly.
 - Extracts real text directly from the PDF when possible.
 - Falls back to OCR (per page) when a page's extracted text looks corrupted
   or garbled, e.g. because of a broken font character map.
@@ -15,8 +21,9 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
 - Fully supports Turkish characters (`ı ğ ü ş ö ç İ`) end to end: UTF-8
   throughout, and OCR runs with both English and Turkish language data
   (`eng+tur`).
-- Returns the **complete** Markdown text to the calling agent — never
-  summarized or truncated.
+- Returns the **complete** Markdown text for every file to the calling
+  agent — never summarized or truncated, and a failure on one file never
+  suppresses the results of the others.
 - Runs on the `haiku` model, since it only orchestrates a deterministic
   Python script (`scripts/pdf_to_md.py`) rather than doing the text
   understanding itself.
@@ -100,7 +107,8 @@ Convert examples/sample-turkish.pdf to markdown
 
 Claude should delegate to the `pdf-to-md` subagent and return the full
 Markdown content, including OCR'd Turkish text from the embedded image on
-page 2.
+page 2. Try it with more than one file too (e.g. attach the same PDF twice,
+or point at two different PDFs) to see the multi-file output.
 
 You can also run the conversion script directly, without Claude Code, after
 running `./install.sh`:
@@ -110,6 +118,8 @@ running `./install.sh`:
 PDF_TO_MD_PYLIBS_DIR="$(pwd)/.plugin-data/pylibs" \
 PDF_TO_MD_TESSDATA_DIR="$(pwd)/.plugin-data/tessdata" \
   python scripts/pdf_to_md.py examples/sample-turkish.pdf
+# or several at once:
+  python scripts/pdf_to_md.py examples/sample-turkish.pdf examples/sample-turkish.pdf
 
 PDF_TO_MD_PYLIBS_DIR="$(pwd)/.plugin-data/pylibs" \
 PDF_TO_MD_TESSDATA_DIR="$(pwd)/.plugin-data/tessdata" \
@@ -118,14 +128,31 @@ PDF_TO_MD_TESSDATA_DIR="$(pwd)/.plugin-data/tessdata" \
 
 ## How it works
 
-`agents/pdf-to-md.md` defines the subagent: it validates the input path,
-shells out to `scripts/pdf_to_md.py` (pointing it at the auto-installed
+`agents/pdf-to-md.md` defines the subagent: it filters the paths it was
+given down to just `.pdf` files (leaving anything else for the calling
+agent), validates each one exists, shells out to `scripts/pdf_to_md.py`
+with all of them in a single invocation (pointing it at the auto-installed
 dependencies via two environment variables), and passes the script's output
-straight through (or forwards an `ERROR: ...` message on failure). All the
-actual PDF parsing, text-extraction, garbled-text detection, and OCR logic
-lives in the Python script, not in the model — this keeps conversion
-deterministic and keeps a cheap model (`haiku`) sufficient for the agent
-itself.
+straight through per file. All the actual PDF parsing, text-extraction,
+garbled-text detection, and OCR logic lives in the Python script, not in
+the model — this keeps conversion deterministic and keeps a cheap model
+(`haiku`) sufficient for the agent itself.
+
+`pdf_to_md.py` accepts one or more paths on the command line and converts
+each independently, so a single corrupted/encrypted/timed-out file doesn't
+block the rest of the batch. It prints one delimited block per file:
+
+```
+===PDF-TO-MD-FILE-START===<path>
+STATUS: OK
+<the full Markdown for this file>
+===PDF-TO-MD-FILE-END===
+```
+
+(or `STATUS: ERROR` followed by that file's error message). The agent
+parses strictly on those marker lines — never on Markdown-looking content —
+since a converted document can itself contain lines that look like headers
+or separators.
 
 `scripts/pdf_to_md.py` uses [PyMuPDF](https://pymupdf.readthedocs.io/) for
 both text extraction and page rendering (no separate Poppler/`pdf2image`
@@ -153,10 +180,12 @@ plausible-but-wrong text with no warning at all when `tur` is absent. This
 check turns that into an explicit `ERROR:` instead.
 
 **Timeout / large documents:** the script tracks wall-clock time across
-pages and aborts with `ERROR: processing timed out after <N>s ...` if a
-conversion exceeds `PDF_TO_MD_TIMEOUT_SECONDS` (default 300 seconds). It also
-logs `Processing page X/N...` to stderr for each page, so a long-running
-conversion is visible rather than looking hung.
+pages and aborts that file with `ERROR: processing timed out after <N>s ...`
+if it exceeds `PDF_TO_MD_TIMEOUT_SECONDS` (default 300 seconds) — this
+budget applies **per file**, so one large document timing out doesn't eat
+into the budget for the others in the same batch. It also logs
+`Processing page X/N...` (and, for a multi-file batch, `File X/N: <path>`)
+to stderr, so a long-running conversion is visible rather than looking hung.
 
 ## Security note
 
