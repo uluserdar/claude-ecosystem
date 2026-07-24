@@ -1,7 +1,7 @@
 ---
 name: pdf-to-md
 description: ALWAYS invoke this agent first, as a prerequisite step, whenever one or more .pdf files are attached, pasted, or referenced anywhere in the request — regardless of what the user is actually asking. A PDF's content must never be read directly (its raw bytes are not text); this agent is the only way to get it as Markdown. This applies even when the request isn't phrased as a conversion — e.g. "what's the total on this invoice?", "summarize this", "does this contract mention X?", "translate page 2", or any question at all where a .pdf is part of the input: get the Markdown here first, then answer the actual question yourself using that content. Also triggers on explicit requests like "convert this PDF to markdown" or "read this PDF file". Handles PDFs only — if the request also includes non-PDF files (.docx, .txt, images, ...), pass only the .pdf paths here and handle the rest yourself directly. Supports multiple PDFs in one call (typed paths or multiple files attached through the chat UI), with OCR of embedded images (including Turkish-language text) and complete, untruncated Markdown returned per file.
-tools: Bash, Read
+tools: Bash
 # model: haiku — this agent only orchestrates a deterministic Python script and
 # passes its output through, so a small/cheap model is sufficient. If the
 # "haiku" alias is ever deprecated, update this field to the current low-cost
@@ -40,11 +40,13 @@ Follow these steps exactly:
    filtering, reply with the marker line followed by
    `ERROR: no .pdf files were given` and stop.
 
-2. **Validate.** For each `.pdf` path, confirm the file exists (e.g.
-   `Bash: test -f "<path>" && echo OK`, or use the Read tool). Drop any
-   that don't exist from the batch and note them individually as
-   `ERROR: file not found: <path>` in your final reply — don't let a
-   missing file stop the others.
+2. **Validate.** For each `.pdf` path, confirm the file exists using Bash
+   (e.g. `test -f "<path>" && echo OK`) — never the Read tool, even just to
+   check existence; a `PreToolUse` hook blocks Read on `.pdf` paths
+   session-wide precisely so PDFs always go through this script instead, and
+   that hook applies to you too. Drop any paths that don't exist from the
+   batch and note them individually as `ERROR: file not found: <path>` in
+   your final reply — don't let a missing file stop the others.
 
 3. **Run the script once for the whole batch.** Pass every validated PDF
    path to a single invocation (this points the script at the dependencies

@@ -10,7 +10,14 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
   needed.** Attach a PDF and ask an unrelated question ("what's the total on
   this invoice?", "summarize this") and Claude delegates to this agent first
   to get the content as Markdown, then answers your actual question with it.
-  You never need to explicitly ask for a conversion.
+  You never need to explicitly ask for a conversion. This is enforced by a
+  `PreToolUse` hook (`hooks/hooks.json` → `scripts/block_pdf_read.py`), not
+  just by instructions: Claude's built-in `Read` tool can natively open PDFs
+  itself (without OCR or Turkish-character handling), so relying on
+  instructions alone lets that built-in shortcut silently bypass this agent.
+  The hook blocks `Read` on any `.pdf` path session-wide, so delegating here
+  is the only option, whether the path came from typed text or a chat
+  attachment.
 - Converts **one or more PDFs in a single request** — type/paste several
   paths, or attach multiple PDFs through the chat UI. Each file is
   converted independently, so one bad file doesn't stop the rest.
@@ -149,6 +156,20 @@ PDF_TO_MD_TESSDATA_DIR="$(pwd)/.plugin-data/tessdata" \
 ```
 
 ## How it works
+
+**Enforcing that PDFs always go through this agent.** `hooks/hooks.json`
+registers a `PreToolUse` hook, scoped to the `Read` tool, that runs for the
+whole session — not just while the `pdf-to-md` subagent is active.
+`scripts/block_pdf_read.py` reads each `Read` call's JSON input from stdin
+and, if `tool_input.file_path` ends in `.pdf`, exits with code 2 and a
+stderr message telling Claude to delegate to `pdf-to-md` instead. This is
+necessary because Claude's built-in `Read` tool has native PDF support of
+its own (no OCR, no Turkish-character guarantee) — without the hook,
+instructions alone are competing against a capability the model already
+has and can lose, especially for PDFs that arrive as chat attachments
+rather than typed paths. The `pdf-to-md` agent's own tools are `Bash` only
+(no `Read`) so it can't trip this same block while validating a file
+exists.
 
 `agents/pdf-to-md.md` defines the subagent: it filters the paths it was
 given down to just `.pdf` files (leaving anything else for the calling
