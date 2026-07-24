@@ -1,127 +1,127 @@
 ---
 name: ask-me
-description: Kullanıcının sorusuna derinlemesine analiz edilmiş, çelişkisiz ve kaynaklı bir nihai cevap üretmek için kullan. Bu skill prompt-generator'ın gelişmiş bir versiyonudur; ancak çıktı olarak bir prompt değil, doğrudan soruya bir cevap üretir. Kullanıcı "ask-me", "derinlemesine cevapla", "bu soruyu analiz et", "çelişkileri gider ve cevapla" gibi açık ifadeler kullandığında MUTLAKA bu skill'i kullan. Ayrıca kullanıcı "bu konuda ne düşünüyorsun", "araştır ve söyle", "hangisi daha mantıklı", "kapsamlı/derinlemesine özetle", "bana en doğru cevabı bul" gibi dolaylı ifadelerle ya da karmaşık, çok parçalı, araştırma/analiz gerektiren, veya potansiyel olarak çelişkili bilgiler içeren bir soru sorduğunda da bu skill'i MUTLAKA tetikle — kullanıcı "ask-me" kelimesini hiç kullanmasa bile. Basit, tek cümlelik, doğrudan cevaplanabilir sorularda kullanma.
+description: Use to produce a deeply analyzed, contradiction-free, sourced final answer to the user's question. This skill is an advanced version of prompt-generator; however, instead of producing a prompt as output, it produces a direct answer to the question. ALWAYS use this skill when the user uses explicit phrases like "ask-me", "answer in depth", "analyze this question", "resolve contradictions and answer". Also ALWAYS trigger this skill when the user asks with indirect phrases like "what do you think about this", "research and tell me", "which one makes more sense", "summarize comprehensively/in depth", "find me the most accurate answer" — or asks a complex, multi-part question that requires research/analysis, or one that potentially contains contradictory information — even if the user never uses the word "ask-me". Do not use it for simple, one-sentence, directly answerable questions.
 ---
 
 # ask-me
 
-Bu skill, kullanıcının sorusunu prompt-generator tarzı bir sorgulama sürecinden geçirip, alt parçalara bölerek analiz eden, çelişkileri derinlemesine sorgulama ile gideren ve nihayetinde detaylı, kaynaklı, biçimlendirilmiş (markdown) bir cevap hem sohbette hem de indirilebilir/kopyalanabilir bir `.md` dosyası olarak üreten bir analiz sürecidir.
+This skill is an analysis process that runs the user's question through a prompt-generator-style interrogation process, breaks it into sub-parts to analyze, resolves contradictions through in-depth questioning, and ultimately produces a detailed, sourced, formatted (markdown) answer both in chat and as a downloadable/copyable `.md` file.
 
-**Bu skill'in tek görevi soruyu cevaplamaktır.** Agent, subagent veya proje oluşturmaz; sadece analiz edip cevap verir.
+**This skill's only job is to answer the question.** It does not create agents, subagents, or projects; it only analyzes and answers.
 
-Aşağıdaki round sırasını takip et — kullanıcı açıkça atlamanı istemedikçe round'ları atlamadan veya sırasını değiştirmeden ilerle.
+Follow the round order below — do not skip rounds or change their order unless the user explicitly asks you to.
 
-## Round 1 — Serbest metinli keşif (bir soru → bir cevap)
+## Round 1 — Free-text exploration (one question → one answer)
 
-**Amaç:** İsteği analiz etmek ve çevresel etkenleri (bağlam, ortam, amaç) tespit etmek.
+**Goal:** Analyze the request and identify environmental factors (context, setting, purpose).
 
-Şu soruyla başla: **"Neyi öğrenmek/çözmek istiyorsun?"**
+Start with the question: **"What do you want to learn/solve?"**
 
-Bu round'da:
-- **Asla seçenek veya buton sunma.** Sorular tamamen serbest metin ve konuşma tarzında olmalı (bu round'da seçenek tabanlı araçlar kullanılmaz).
-- **Aynı anda sadece bir soru sor**, cevabı bekle, sonra bir sonraki soruyu sor. Arka arkaya birden fazla soru listeleme. Bu kural her koşulda geçerlidir — soru kısa da olsa uzun/detaylı da olsa, tek bir soru olarak sorulur.
-- **Sorular varsayılan olarak kısa ve net olsun.** Kullanıcı bir konuyu detaylandırmanı istemedikçe soruları kısa tut. Kullanıcı "bunu biraz daha detaylandır" gibi bir istekte bulunursa, o tek soruyu daha uzun/açıklayıcı bir şekilde sorabilirsin — ama yine de tek bir soru olarak kalır, birden fazla soruya bölünmez.
-- **Her sorunun tek bir odak noktası olsun.** Bir soru cümlesi içinde birden fazla konuyu birleştirme (örn. "bağlamı ve beklenen kapsamı anlatır mısın?" gibi iki farklı şeyi tek soruda sorma). Her soru yalnızca aşağıdaki alanlardan birine odaklansın; bir sonraki alana geçmeden önce o alanı netleştir.
-- **Toplam soru sayısı sınırı:** Bu round'da en az 3, en fazla 10 soru sor (aşağıdaki asgari-3 istisnası hariç). 10 sorudan önce konu yeterince netleştiyse daha erken bitirebilirsin (asgari 3 şartıyla, istisna durumu hariç). İstisna: 10 soruya ulaşıldığında istek hâlâ netleşmediyse (belirsizlik, çelişki veya eksik bilgi devam ediyorsa), 10 sınırını aşıp sormaya devam edebilirsin — netlik önceliklidir.
-- **Asgari 3 soru istisnası:** Kullanıcı ilk mesajında zaten aşağıdaki 4 alandan çoğunu kendiliğinden, detaylı biçimde açıklamışsa (bağlam, kapsam, kısıtlar vb.), asgari 3 soru şartı esner — yalnızca gerçekten belirsiz kalan alan(lar) için soru sor; hiçbir alan belirsiz kalmadıysa bu round'u 1-2 soruyla, hatta hiç soru sormadan bitirebilirsin.
-- Kullanıcının ilk cevabına göre, aşağıdaki alanları tek tek netleştir — cevaplarında zaten karşılanan noktaları atla, hepsini sormak zorunda değilsin:
-  1. Sorunun tam olarak ne olduğu (kullanıcı gerçekte neyi öğrenmek/çözmek istiyor)
-  2. Bağlam (hangi amaçla soruyor, hangi ortam/durumla ilgili)
-  3. Beklenen cevabın kapsamı (ne kadar detay, hangi açılardan ele alınmalı)
-  4. Elindeki ek bilgi/kısıtlar (bildiği veya varsaydığı şeyler, hariç tutulması gereken şeyler)
-- Bu round, ilerlemek için yeterli bilgi toplandığında sona erer (normalde asgari 3, azami 10 soru; asgari-3 istisnası veya azami-10 istisnası geçerliyse bu sayılar esner). Gereksiz yere uzatma.
+In this round:
+- **Never offer options or buttons.** Questions must be entirely free-text and conversational in style (no option-based tools are used in this round).
+- **Ask only one question at a time**, wait for the answer, then ask the next question. Don't list multiple questions in a row. This rule applies unconditionally — whether the question is short or long/detailed, it's asked as a single question.
+- **Questions should be short and clear by default.** Keep questions short unless the user asks you to elaborate on a topic. If the user requests something like "elaborate on this a bit more," you can ask that single question in a longer/more explanatory way — but it still remains a single question, not split into multiple.
+- **Each question should have a single focus.** Don't combine multiple topics in one question sentence (e.g., don't ask "can you describe the context and the expected scope?" as two different things in one question). Each question should focus on only one of the areas below; clarify that area before moving to the next.
+- **Total question limit:** In this round, ask at least 3 and at most 10 questions (except for the minimum-3 exception below). You can finish earlier if the topic is sufficiently clarified before reaching 10 questions (subject to the minimum-3 requirement, except in the exception case). Exception: if the request is still not clear once 10 questions are reached (ambiguity, contradiction, or missing information persists), you may continue past the limit of 10 — clarity takes priority.
+- **Minimum-3-question exception:** If the user has already spontaneously and thoroughly explained most of the 4 areas below in their first message (context, scope, constraints, etc.), the minimum-3-question requirement relaxes — only ask about the area(s) that genuinely remain unclear; if no area remains unclear, you can end this round with 1-2 questions, or even no questions at all.
+- Based on the user's initial answer, clarify the following areas one by one — skip points already covered in their answers, you don't have to ask about all of them:
+  1. What exactly the question is (what the user actually wants to learn/solve)
+  2. Context (for what purpose they're asking, which setting/situation it relates to)
+  3. Expected scope of the answer (how much detail, which angles should be covered)
+  4. Additional information/constraints they have (things they know or assume, things that should be excluded)
+- This round ends once enough information has been gathered to proceed (normally minimum 3, maximum 10 questions; these numbers flex if the minimum-3 exception or maximum-10 exception applies). Don't drag it out unnecessarily.
 
-## Round 2 — Çoklu seçimli netleştirme
+## Round 2 — Multi-select clarification
 
-**Amaç:** Kapsamı genişletmek ve çelişkili istekleri tespit etmek.
+**Goal:** Expand the scope and detect conflicting requests.
 
-Round 1'de toplananlara dayanarak netleştirici sorular hazırla ve bunları **`ask_user_input_v0`** aracıyla `multi_select` tipinde sor (kullanıcı birden fazla seçeneği işaretleyebilmeli).
+Based on what was gathered in Round 1, prepare clarifying questions and ask them using the **`ask_user_input_v0`** tool with type `multi_select` (the user should be able to check more than one option).
 
-- Sorular Round 1'in cevaplarından doğmalı — örn. kullanıcı "yatırım kararı için karşılaştırma istiyorum" dediyse, bu round "Hangi kriterlere göre karşılaştırma yapılsın? (risk / getiri / likidite / vergi...)" gibi somut, çoklu seçilebilir bir soru sorabilir.
-- Amaç: Round 1'in geniş cevaplarını somut analiz kararlarına dönüştürmek (hangi alt başlıklar ele alınacak, hangi varsayımlardan kaçınılacak vb.), aynı zamanda kapsamı gerektiği kadar genişletmek.
-- Kullanıcının verdiği çoklu seçimler arasında (veya Round 1 cevaplarıyla) birbiriyle çelişen ya da birlikte anlamsız olan kombinasyonlar varsa bunları not al — bu çelişkiler Round 3'te giderilecek.
-- Araç, çağrı başına en fazla 3 soruya izin verir; gerekirse ek çağrılar yap.
+- Questions should arise from Round 1's answers — e.g., if the user said "I want a comparison for an investment decision," this round could ask a concrete, multi-selectable question like "Which criteria should the comparison be based on? (risk / return / liquidity / tax...)"
+- Goal: turn Round 1's broad answers into concrete analysis decisions (which sub-topics will be covered, which assumptions to avoid, etc.), while also expanding the scope as needed.
+- Note any combinations among the user's multi-select answers (or against Round 1 answers) that conflict with each other or are nonsensical together — these contradictions will be resolved in Round 3.
+- The tool allows at most 3 questions per call; make additional calls if needed.
 
-## Round 3 — Çelişki kontrolü (tekli seçim)
+## Round 3 — Contradiction check (single-select)
 
-**Amaç:** Tespit edilen çelişkileri gidermek.
+**Goal:** Resolve the contradictions detected.
 
-Round 2'de not edilen çelişkileri, ve Round 1-2 cevaplarını birlikte tekrar gözden geçirerek gözden kaçmış olabilecek başka çelişki veya anlamsız kombinasyon olup olmadığını kontrol et.
+Review the contradictions noted in Round 2, together with the Round 1-2 answers, to check whether there are any other contradictions or nonsensical combinations that may have been missed.
 
-- Bir çelişki varsa, her çelişki için **`ask_user_input_v0`** aracını `single_select` tipinde kullan, kullanıcının net, birbirini dışlayan seçenekler arasından seçim yapabileceği şekilde sun.
-- Çelişki yoksa bu round'u atla ve özet kısmına geçmeden önce kısaca "Cevaplarında bir çelişki tespit etmedim" de.
-- Bu round her zaman tekli seçim olmalı — kullanıcı burada net bir tercih yapmalı, çoklu seçim yok.
-- **Bu kontrolü asla sessizce atlama.** Çelişki bulunsun ya da bulunmasın, özet kısmına geçmeden önce kullanıcıya en az bir cümlelik kontrol sonucunu mutlaka bildir (ya "şu çelişki(ler) tespit edildi, seçim yap" ya da "bir çelişki tespit etmedim").
+- If there is a contradiction, use the **`ask_user_input_v0`** tool with type `single_select` for each contradiction, presenting clear, mutually exclusive options for the user to choose from.
+- If there is no contradiction, skip this round and briefly say "I didn't detect any contradiction in your answers" before moving to the summary.
+- This round should always be single-select — the user must make a clear choice here, no multi-select.
+- **Never skip this check silently.** Whether a contradiction is found or not, always report the result of the check to the user in at least one sentence before moving to the summary (either "the following contradiction(s) were detected, please choose" or "I didn't detect a contradiction").
 
-## Kaynak tercihleri (Round 3 sonrası)
+## Source preferences (after Round 3)
 
-**Amaç:** Analiz sürecinde kullanılacak kaynak türünü ve arama derinliğini belirlemek.
+**Goal:** Determine the type of sources and search depth to use during the analysis process.
 
-Round 3 tamamlandıktan sonra, özet adımına geçmeden önce aşağıdaki iki soruyu **`ask_user_input_v0`** aracıyla `single_select` tipinde sor (yalnızca bir seçenek işaretlenebilir, ikisi de zorunludur):
+After Round 3 is completed, before moving to the summary step, ask the following two questions using the **`ask_user_input_v0`** tool with type `single_select` (only one option can be selected, both are mandatory):
 
-1. **Kaynak türü** — "Hangi tür kaynaklar kullanılsın?"
-   - Resmi kaynaklar
-   - Resmi kaynaklar + güvenilir community/teknik blog
-   - Genel kaynaklar
-2. **Arama derinliği** — "Kaynak araştırması ne kadar derin olsun?"
-   - Hızlı (1-3 kaynak/arama)
-   - Orta (4-8 kaynak/arama)
-   - Derinlemesine (8-20+ kaynak/arama, kapsamlı)
+1. **Source type** — "Which type of sources should be used?"
+   - Official sources
+   - Official sources + trusted community/technical blogs
+   - General sources
+2. **Search depth** — "How deep should the source research be?"
+   - Quick (1-3 sources/search)
+   - Medium (4-8 sources/search)
+   - In-depth (8-20+ sources/search, comprehensive)
 
-Bu iki soru aynı `ask_user_input_v0` çağrısında birlikte sorulabilir (araç çağrı başına en fazla 3 soruya izin verir). Bu iki tercih, hemen ardından gelen özete dahil edilir ve kullanıcı özeti onaylarken bunları da değiştirebilir.
+These two questions can be asked together in the same `ask_user_input_v0` call (the tool allows at most 3 questions per call). These two preferences are included in the summary that follows immediately, and the user can also change them while confirming the summary.
 
-## Özet ve onay
+## Summary and confirmation
 
-Üç round ve Kaynak tercihleri adımı tamamlandıktan sonra:
+After the three rounds and the Source preferences step are completed:
 
-1. Toplanan her kararın kısa, maddeler halinde bir özetini göster (asıl soru, bağlam, kapsam, kısıtlar, kaynak türü ve arama derinliği tercihleri dahil — Round 2/3 ve Kaynak tercihleri adımında netleşenler dahil).
-2. Kullanıcıya sor: **"Bu özeti gözden geçirebilir misin? Değiştirmek veya eklemek istediğin bir şey var mı?"**
-3. Kullanıcı bir maddede düzeltme isterse, yeni değeri olduğu gibi kabul etme — o madde üzerinde küçük bir derinlemesine sorgulama yap:
-   - Tam olarak neyin, neden değişmesi gerektiğini anlamak için bir veya daha fazla serbest metin takip sorusu sor (Round 1 tarzında — aynı anda tek soru, seçenek/buton yok).
-   - Değişikliğin somut alt seçenekleri varsa (örn. kapsamın yeniden ele alınması, kriterlerin değişmesi), duruma uygun şekilde `ask_user_input_v0` ile multi_select veya single_select bir soru sorarak netleştir (Round 2/3 tarzında).
-   - Madde tam netleştiğinde güncelle (ve diğer özet maddeleriyle yeni çelişki olup olmadığını tekrar kontrol et), tam özeti tekrar göster.
-   - Kullanıcı tüm özetten memnun olana kadar, istenen her düzeltme için bu derinlemesine inceleme adımını tekrarla.
-4. Kullanıcı özeti onayladıktan sonra, ayrı ve açık bir onay iste: **"Bu özete göre analiz edip cevap üretmeye başlayayım mı?"**
-5. Sadece kullanıcı net bir şekilde onayladıktan sonra ilerle (evet/onaylıyorum/başla vb.). Bu onaydan önce analize başlama.
+1. Show a short, bulleted summary of every decision gathered (the actual question, context, scope, constraints, source type and search depth preferences — including everything clarified in Round 2/3 and the Source preferences step).
+2. Ask the user: **"Can you review this summary? Is there anything you'd like to change or add?"**
+3. If the user requests a correction on an item, don't just accept the new value as-is — do a small in-depth follow-up on that item:
+   - Ask one or more free-text follow-up questions to understand exactly what needs to change and why (Round-1 style — one question at a time, no options/buttons).
+   - If the change has concrete sub-options (e.g., re-scoping, changing criteria), clarify with an `ask_user_input_v0` multi_select or single_select question as appropriate (Round 2/3 style).
+   - Once the item is fully clarified, update it (and re-check for any new contradiction with the other summary items), then show the full summary again.
+   - Repeat this in-depth review step for every requested correction until the user is satisfied with the entire summary.
+4. Once the user approves the summary, ask for a separate, explicit confirmation: **"Should I start analyzing and producing the answer based on this summary?"**
+5. Only proceed once the user has clearly confirmed (yes/I approve/start, etc.). Do not begin the analysis before this confirmation.
 
-## Analiz süreci (iç işleyiş — kullanıcıya gösterilmez)
+## Analysis process (internal — not shown to the user)
 
-Onaydan sonra, aşağıdaki iç analiz sürecini uygula. Bu süreç kullanıcıya ham haliyle gösterilmez; sadece nihai cevap paylaşılır.
+After confirmation, apply the following internal analysis process. This process is not shown to the user in raw form; only the final answer is shared.
 
-1. **Parçalara ayırma:** Onaylanan soruyu/problemi, bağımsız olarak analiz edilebilecek alt sorulara/alt parçalara böl. Karmaşıklığa göre adım adım akıl yürütme kullanarak hangi alt parçaların gerekli olduğuna karar ver.
-2. **Alt parça analizi:** Her alt parçayı ayrı ayrı analiz et ve cevapla. Gerekirse XML etiketleriyle (`<subquestion>`, `<analysis>`, `<finding>` vb.) iç yapılandırma kullanarak süreci düzenli tut. Somut, doğrulanabilir iddialar için onaylanan özette yer alan **kaynak türü** ve **arama derinliği** tercihine uygun şekilde güncel kaynak arayarak (web araması) destekle:
-   - Kaynak türü "Resmi kaynaklar" seçildiyse yalnızca resmi/kurumsal/birincil kaynaklara öncelik ver; "Resmi kaynaklar + güvenilir community/teknik blog" seçildiyse resmi kaynaklara öncelik ver ama tanınmış, güvenilir topluluk/teknik blog kaynaklarını da destekleyici olarak kullanabilirsin; "Genel kaynaklar" seçildiyse bu kısıtlama olmadan ara.
-   - Arama derinliği "Hızlı" ise 1-3 arama ile yetin; "Orta" ise 4-8 arama yap; "Derinlemesine" seçildiyse 8-20+ aramayla çok sayıda kaynağı tarayarak kapsamlı araştır.
-   - Site/kaynak araştırması sırasında konuyla doğrudan ilgili, temsili örnek görseller (web_search veya image_search sonuçlarında) karşına çıkarsa, bunları not al — nihai cevapta ilgili bölüme eklenecek.
-3. **Çelişki tespiti:** Alt parça cevapları arasında çelişki olup olmadığını kontrol et (örn. bir alt cevabın vardığı sonuç başka bir alt cevabın öncülüyle çelişiyor mu).
-4. **Derinlemesine sorgulama ile giderme:** Çelişki tespit edilirse, çelişkili noktaları tekrar sorgula (ek analiz, ek kaynak arama veya gerekirse kullanıcıya netleştirici bir soru sorarak) ve çelişkiyi gider. Birden fazla çelişki tespit edildiyse her çelişkiyi ayrı ayrı ele al ve her biri için bu adımı en fazla **3 tur** tekrarla (bir çelişkinin 3 turu, diğerinin sınırını etkilemez). Bir çelişki için 3 turun sonunda hâlâ giderilemediyse, o çelişkiye özel olarak iç analiz sürecini durdur ve kullanıcıya şunu sor: **"Şu noktada hâlâ bir çelişki var: [çelişkinin kısa özeti]. Nasıl ilerleyelim?"** — kullanıcının yönlendirmesine göre devam et.
-5. **Birleştirme:** Çelişkisi giderilmiş, doğrulanmış alt cevapları tek, tutarlı bir nihai cevapta birleştir.
+1. **Decomposition:** Break the approved question/problem into sub-questions/sub-parts that can be analyzed independently. Use step-by-step reasoning based on complexity to decide which sub-parts are necessary.
+2. **Sub-part analysis:** Analyze and answer each sub-part separately. Use internal structuring with XML tags if needed (`<subquestion>`, `<analysis>`, `<finding>`, etc.) to keep the process organized. For concrete, verifiable claims, support them by searching for up-to-date sources (web search) according to the **source type** and **search depth** preference in the approved summary:
+   - If source type "Official sources" was selected, prioritize only official/institutional/primary sources; if "Official sources + trusted community/technical blogs" was selected, prioritize official sources but you may also use well-known, trusted community/technical blog sources as supporting material; if "General sources" was selected, search without this restriction.
+   - If search depth is "Quick," 1-3 searches suffice; if "Medium," do 4-8 searches; if "In-depth" was selected, research comprehensively by scanning a large number of sources with 8-20+ searches.
+   - If directly relevant, representative example images (in web_search or image_search results) come up during site/source research, note them — they will be added to the relevant section in the final answer.
+3. **Contradiction detection:** Check whether there are contradictions among the sub-part answers (e.g., does the conclusion of one sub-answer contradict the premise of another sub-answer).
+4. **Resolution through in-depth questioning:** If a contradiction is detected, re-examine the conflicting points (additional analysis, additional source research, or asking the user a clarifying question if necessary) and resolve the contradiction. If multiple contradictions are detected, handle each one separately and repeat this step for each, up to a maximum of **3 rounds** (3 rounds for one contradiction doesn't affect the limit for another). If a contradiction still isn't resolved after 3 rounds, stop the internal analysis process specifically for that contradiction and ask the user: **"There's still a contradiction at this point: [short summary of the contradiction]. How should we proceed?"** — continue based on the user's direction.
+5. **Merging:** Merge the verified sub-answers, with contradictions resolved, into a single, coherent final answer.
 
-## Nihai cevap
+## Final answer
 
-Nihai cevabı kullanıcıya şu kurallarla sun:
+Present the final answer to the user with these rules:
 
-- **Cevap tamamen biçimlendirilmiş markdown olsun.** Başlıklar (`##`, `###`), madde işaretli/numaralı listeler ve gerektiğinde tablo serbestçe kullanılır. Ana metin içinde markdown (kalın, italik, link, kod bloğu vb.) kullanılabilir.
-- **Yapıyı içeriğe göre kur.** Cevabı, sorunun alt parçalarına karşılık gelen başlıklar altında organize et (örn. her alt soru/analiz konusu kendi başlığını alsın). Karşılaştırma, kriter, sayısal veri gibi çok boyutlu bilgi varsa tablo kullan; sıralı adım veya liste gerektiren noktalarda madde işareti/numaralandırma kullan.
-- **Görsel varsa ilgili başlığın altında/satırında göster.** Kaynak araştırması (web_search veya image_search) sırasında konuyla doğrudan ilgili bir görsele rastlanırsa, bunu ayrı bir bölüme atma — hangi başlık/bölüm veya cümleyle ilgiliyse tam onun altına ya da hemen yanındaki satıra, markdown resim sözdizimiyle (`![açıklama](url)`) yerleştir.
-- Görsel bulunamadıysa veya konuyla doğrudan ilgili/faydalı değilse görsel eklemek zorunlu değildir.
-- **Detaylı olsun.** Yüzeysel geçme; sorunun gerektirdiği derinlikte ele al.
-- **Varsayımlara dayanmasın.** Emin olunmayan noktalarda bunu açıkça belirt; boşlukları varsayımla doldurma.
-- **Kaynak/referans zorunludur.** Mümkün olduğunda gerçek, güncel kaynaklara atıfta bulun (web araması kullanarak). Bir iddia için güvenilir kaynak bulunamıyorsa, bunu uydurma — "bu konuda doğrulanabilir bir kaynak bulunamadı" şeklinde açıkça belirt.
-- Telif hakkı kısıtlarına uy: kaynaklardan alıntı yaparken kendi cümlelerinle özetle, doğrudan uzun alıntı yapma.
-- **Cevap ayrıca dosya olarak da üretilmelidir.** Yukarıdaki kurallara göre hazırlanan nihai cevabın tamamını bir `.md` dosyası olarak oluştur (`create_file`) ve kullanıcıya sun (`present_files`) — böylece kullanıcı cevabı indirebilir veya kolayca kopyalayabilir. Dosyanın içeriği sohbette gösterilen metinle birebir aynı olmalı; sohbette ayrıca kısa bir özet/giriş cümlesi verip ardından dosyayı sunabilirsin, ama nihai cevabın tam metni mutlaka dosyada da bulunmalı.
+- **The answer must be entirely formatted markdown.** Headings (`##`, `###`), bulleted/numbered lists, and tables where needed are used freely. Markdown (bold, italic, links, code blocks, etc.) can be used within the body text.
+- **Build the structure around the content.** Organize the answer under headings corresponding to the sub-parts of the question (e.g., each sub-question/analysis topic gets its own heading). Use tables for multi-dimensional information like comparisons, criteria, or numerical data; use bullets/numbering for sequential steps or list-like points.
+- **If there's an image, show it under/next to the relevant heading.** If a directly relevant image is found during source research (web_search or image_search), don't put it in a separate section — place it directly under or right next to whichever heading/section/sentence it relates to, using markdown image syntax (`![description](url)`).
+- If no image is found, or none is directly relevant/useful, adding an image is not mandatory.
+- **Be detailed.** Don't skim the surface; address it at the depth the question requires.
+- **Don't rely on assumptions.** Clearly state points you're not sure about; don't fill gaps with assumptions.
+- **Sources/references are mandatory.** Cite real, up-to-date sources wherever possible (using web search). If no reliable source can be found for a claim, don't make one up — clearly state "no verifiable source could be found for this."
+- Respect copyright restrictions: summarize in your own words when quoting from sources, don't do long direct quotes.
+- **The answer must also be produced as a file.** Create the entire final answer, prepared according to the rules above, as a `.md` file (`create_file`) and present it to the user (`present_files`) — so the user can download or easily copy the answer. The file's content must be identical to the text shown in chat; you can give a short summary/intro sentence in chat and then present the file, but the full text of the final answer must also be present in the file.
 
 <constraints>
-- Round sırasını değiştirme veya atlama (kullanıcı açıkça istemedikçe).
-- Round 1'de asla seçenek/buton sunma; ask_user_input_v0 Round 2, Round 3, Kaynak tercihleri adımı ve Özet'teki düzeltme döngüsünde kullanılabilir — Round 1'de asla.
-- Round 1'de asgari 3 soru şartı yalnızca kullanıcı ilk mesajında ilgili alanları zaten detaylıca açıklamışsa esner; aksi halde asgari 3 soru kuralı geçerlidir.
-- Round 2'de kaynak türü ve arama derinliği soruları sorulmaz; bu iki soru Round 3 tamamlandıktan sonra, özetten önce ayrı bir adımda (single_select) sorulur ve asla atlanmaz.
-- Round 3 her zaman tekli seçim (single_select) olmalı ve sonucu (çelişki bulunsun ya da bulunmasın) her zaman en az bir cümleyle kullanıcıya bildir; bu adımı asla sessizce atlama.
-- Özet onaylanmadan ve ayrı bir "başlayayım mı?" onayı alınmadan analiz sürecine başlama.
-- Analiz sürecindeki çelişki giderme döngüsü en fazla 3 turla sınırlıdır; 3 turdan sonra hâlâ çelişki varsa kullanıcıya sorulur, sessizce devam edilmez.
-- Kaynak araması, onaylanan özette yer alan kaynak türü ve arama derinliği tercihine göre yapılır (Kaynak tercihleri adımındaki ilk cevaba değil, özete referans ver — kullanıcı özet aşamasında bu tercihleri değiştirmiş olabilir).
-- Nihai cevap tamamen biçimlendirilmiş markdown olmalı: başlıklar, madde işaretleri/numaralandırma serbest, gerektiğinde tablo kullanılır. Görsel varsa ilgili başlığın altına/satırına yerleştirilir, ayrı bir bölüme atılmaz.
-- Nihai cevap yalnızca sohbette gösterilmez; aynı zamanda bir `.md` dosyası olarak oluşturulup (`create_file`) kullanıcıya sunulur (`present_files`) — kullanıcı indirebilsin/kopyalayabilsin diye. Bu adım asla atlanmaz.
-- Kaynaksız, uydurma iddialarda bulunma; kaynak yoksa bunu açıkça söyle.
-- Bu skill sadece soru cevaplar; agent, subagent veya proje oluşturmaz.
+- Don't change or skip the round order (unless the user explicitly asks).
+- Never offer options/buttons in Round 1; ask_user_input_v0 can be used in Round 2, Round 3, the Source preferences step, and the correction loop in the Summary — never in Round 1.
+- The minimum-3-question requirement in Round 1 only relaxes if the user has already thoroughly explained the relevant areas in their first message; otherwise the minimum-3-question rule applies.
+- Source type and search depth questions are not asked in Round 2; these two questions are asked in a separate step (single_select) after Round 3 is completed, before the summary, and are never skipped.
+- Round 3 must always be single-select, and its result (whether a contradiction is found or not) must always be reported to the user in at least one sentence; never skip this step silently.
+- Don't start the analysis process until the summary is approved and a separate "should I start?" confirmation is obtained.
+- The contradiction-resolution loop in the analysis process is limited to at most 3 rounds; if a contradiction still remains after 3 rounds, ask the user — don't proceed silently.
+- Source research is done according to the source type and search depth preference in the approved summary (refer to the summary, not the initial answer in the Source preferences step — the user may have changed these preferences during the summary stage).
+- The final answer must be entirely formatted markdown: headings, bullets/numbering used freely, tables where needed. If there's an image, place it under/next to the relevant heading, not in a separate section.
+- The final answer is not only shown in chat; it must also be created as a `.md` file (`create_file`) and presented to the user (`present_files`) — so the user can download/copy it. This step is never skipped.
+- Don't make unsourced, fabricated claims; if there's no source, say so explicitly.
+- This skill only answers questions; it does not create agents, subagents, or projects.
 </constraints>
