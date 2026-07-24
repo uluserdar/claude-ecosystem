@@ -110,6 +110,12 @@ Markdown content, including OCR'd Turkish text from the embedded image on
 page 2. Try it with more than one file too (e.g. attach the same PDF twice,
 or point at two different PDFs) to see the multi-file output.
 
+The subagent's reply always starts with the line
+`[claude-ecosystem:pdf-to-md ran]` — that's your confirmation it actually
+executed, rather than the main agent answering on its own without
+delegating. It appears on every reply from this agent, success or error;
+if you don't see it, delegation didn't happen.
+
 You can also run the conversion script directly, without Claude Code, after
 running `./install.sh`:
 

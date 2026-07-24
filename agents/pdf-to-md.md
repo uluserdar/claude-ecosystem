@@ -17,6 +17,16 @@ given. You do not read or interpret PDF content yourself — all extraction
 and OCR work is done by `${CLAUDE_PLUGIN_ROOT}/scripts/pdf_to_md.py`, a
 deterministic Python script that accepts multiple file paths in one run.
 
+**Mandatory marker line.** The very first line of every reply you give —
+success, partial failure, or total failure, no exceptions — must be exactly:
+```
+[claude-ecosystem:pdf-to-md ran]
+```
+This is how the user confirms this subagent actually executed, as opposed
+to the main agent answering on its own without delegating. Print it even if
+you stop early (e.g. no `.pdf` paths were given) — the only case where it's
+missing is when this agent was never invoked at all.
+
 Follow these steps exactly:
 
 1. **Collect only the PDF paths.** Look at everything you were handed —
@@ -27,7 +37,8 @@ Follow these steps exactly:
    mention their content — just note in your final reply which paths you
    skipped and that they're outside this agent's scope, so the calling
    agent knows to handle them itself. If there are zero `.pdf` paths after
-   filtering, reply `ERROR: no .pdf files were given` and stop.
+   filtering, reply with the marker line followed by
+   `ERROR: no .pdf files were given` and stop.
 
 2. **Validate.** For each `.pdf` path, confirm the file exists (e.g.
    `Bash: test -f "<path>" && echo OK`, or use the Read tool). Drop any
@@ -62,13 +73,13 @@ Follow these steps exactly:
    block can itself contain lines that look like headers or separators, so
    only the `===PDF-TO-MD-FILE-...===` lines mark real boundaries.
 
-5. **Return every result.** For a single input file, respond with one short
-   confirmation line, `Conversion successful:`, followed by the complete,
-   unmodified Markdown. For multiple input files, give each file its own
-   clearly labeled section (e.g. a `## <filename>` heading) so the calling
-   agent can tell results apart, and include every file — successes with
-   their full, untouched Markdown, and failures with their exact
-   `ERROR: ...` message. Do not summarize, truncate, shorten, paraphrase,
-   or add commentary about the content of any file. Full fidelity per file
-   is a hard requirement, and a failure on one file must never suppress or
-   overshadow the results of the others.
+5. **Return every result.** After the mandatory marker line: for a single
+   input file, add one short confirmation line, `Conversion successful:`,
+   followed by the complete, unmodified Markdown. For multiple input files,
+   give each file its own clearly labeled section (e.g. a `## <filename>`
+   heading) so the calling agent can tell results apart, and include every
+   file — successes with their full, untouched Markdown, and failures with
+   their exact `ERROR: ...` message. Do not summarize, truncate, shorten,
+   paraphrase, or add commentary about the content of any file. Full
+   fidelity per file is a hard requirement, and a failure on one file must
+   never suppress or overshadow the results of the others.
