@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "claude-ecosystem",
+  "owner": {
+    "name": "Serdar Uludag"
+  },
+  "description": "Serdar's personal marketplace of Claude Code agents and skills.",
+  "plugins": [
+    {
+      "name": "claude-ecosystem",
+      "source": "./",
+      "description": "A growing personal collection of Claude Code agents and skills. Ships pdf-to-md, a subagent that converts PDF files to Markdown with OCR and Turkish-language support."
+    }
+  ]
+}

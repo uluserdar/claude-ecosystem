@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "claude-ecosystem",
+  "displayName": "Claude Ecosystem",
+  "version": "0.1.0",
+  "description": "A growing personal collection of Claude Code agents and skills. Ships pdf-to-md, a subagent that converts PDF files to Markdown with OCR and Turkish-language support.",
+  "author": {
+    "name": "Serdar Uludag"
+  },
+  "license": "MIT",
+  "keywords": ["pdf", "markdown", "ocr", "turkish", "conversion"]
+}

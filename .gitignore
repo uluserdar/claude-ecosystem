@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+
+# OCR / conversion working files
+*.tmp
+.pdf_to_md_cache/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
