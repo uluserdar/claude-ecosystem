@@ -4,86 +4,32 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
 
 ## What's in here right now
 
-**`pdf-to-md`** — a subagent that converts PDF files to Markdown:
+Nothing yet — this is a clean plugin/marketplace shell, ready for the first
+agent or skill to be added.
 
-- **Triggers automatically whenever a PDF is involved — no "convert" command
-  needed.** Attach a PDF and ask an unrelated question ("what's the total on
-  this invoice?", "summarize this") and Claude delegates to this agent first
-  to get the content as Markdown, then answers your actual question with it.
-  You never need to explicitly ask for a conversion. This is enforced by a
-  `PreToolUse` hook (`hooks/hooks.json` → `scripts/block_pdf_read.py`), not
-  just by instructions: Claude's built-in `Read` tool can natively open PDFs
-  itself (without OCR or Turkish-character handling), so relying on
-  instructions alone lets that built-in shortcut silently bypass this agent.
-  The hook blocks `Read` on any `.pdf` path session-wide, so delegating here
-  is the only option, whether the path came from typed text or a chat
-  attachment.
-- Converts **one or more PDFs in a single request** — type/paste several
-  paths, or attach multiple PDFs through the chat UI. Each file is
-  converted independently, so one bad file doesn't stop the rest.
-- Handles **only** `.pdf` files. If a request mixes PDFs with other file
-  types (`.docx`, `.txt`, images, ...), only the `.pdf` paths go to this
-  subagent — the rest stay with the calling agent to handle directly.
-- Extracts real text directly from the PDF when possible.
-- Falls back to OCR (per page) when a page's extracted text looks corrupted
-  or garbled, e.g. because of a broken font character map.
-- Runs OCR on any text embedded inside images in the PDF and inlines that
-  text into the Markdown output. Images themselves are never saved, and no
-  captions or links are added — only the recognized text.
-- Fully supports Turkish characters (`ı ğ ü ş ö ç İ`) end to end: UTF-8
-  throughout, and OCR runs with both English and Turkish language data
-  (`eng+tur`).
-- Returns the **complete** Markdown text for every file to the calling
-  agent — never summarized or truncated, and a failure on one file never
-  suppresses the results of the others.
-- Runs on the `haiku` model, since it only orchestrates a deterministic
-  Python script (`scripts/pdf_to_md.py`) rather than doing the text
-  understanding itself.
+A PDF-to-Markdown subagent (`pdf-to-md`) was built and tested here first,
+but was removed: forcing every PDF interaction through a subagent (via a
+`PreToolUse` hook blocking direct reads) added latency and failure modes
+without a clear enough win over Claude's own native PDF reading, and a
+chat-attached PDF (via the VS Code extension's attach/drag-and-drop) turns
+out to bypass tool-based hooks entirely — it's embedded directly as
+multimodal message content, so there was no reliable way to route it
+through a subagent anyway. Letting the main agent handle PDFs directly,
+with no plugin involvement, works better in practice.
 
-## Setup: fully automatic
+## Repository structure
 
-**You don't need to install or run anything by hand.** The moment this
-plugin is enabled, a `SessionStart` hook (`hooks/hooks.json` →
-`scripts/bootstrap.sh`) runs automatically and:
-
-1. Installs the pinned Python packages (PyMuPDF, pytesseract, Pillow) into
-   the plugin's own data directory — not your system Python.
-2. Installs the Tesseract OCR binary via your platform's package manager
-   (winget / Homebrew / apt / dnf) if it isn't already on `PATH`.
-3. Downloads English and Turkish language data
-   (`eng.traineddata`, `tur.traineddata`) into the plugin's own data
-   directory and points OCR at that copy directly.
-
-Step 3 exists because the Windows Tesseract installer [can't select
-language components in silent/unattended mode](https://github.com/UB-Mannheim/tesseract/issues/91)
-— so relying on the system package manager for the Turkish language pack
-specifically is unreliable on Windows. Managing our own copy sidesteps
-that entirely and works identically on every platform.
-
-Every step is idempotent and cached, so only the very first session after
-install does any real work; every session after that is a fast no-op check.
-Nothing here needs admin/root rights — everything installs into
-`${CLAUDE_PLUGIN_DATA}` (a directory you already own), except the Tesseract
-binary itself, which needs your platform's normal package-manager
-permissions (passwordless on macOS/Windows via Homebrew/winget; on Linux,
-only if passwordless `sudo` is available, otherwise you'll see a one-line
-warning with the manual install command).
-
-If a step can't complete automatically (no package manager found, no
-`sudo`, offline, etc.), you'll see a `pdf-to-md setup: WARNING - ...` line
-with the exact manual command to run instead — nothing fails silently.
-
-**Manual / standalone setup** (only if you're working with this repo
-outside Claude Code, or troubleshooting): run `./install.sh`, which calls
-the same `scripts/bootstrap.sh` logic against this checkout directly.
-
-**Prerequisite:** Python 3.9+ needs to already be on `PATH` — bootstrapping
-Python itself is out of scope.
+```
+claude-ecosystem/
+├── .claude-plugin/
+│   ├── plugin.json          # plugin metadata
+│   └── marketplace.json     # marketplace catalog listing this plugin
+├── skills/                  # reserved for future skills — currently empty
+├── LICENSE                  # MIT
+└── README.md
+```
 
 ## Install this plugin in Claude Code
-
-Once this repo is pushed to GitHub (see below), add it as a marketplace and
-install the plugin from it:
 
 ```
 /plugin marketplace add <your-github-username>/claude-ecosystem
@@ -105,154 +51,17 @@ To test locally before pushing anywhere, point at the folder directly:
 /plugin install claude-ecosystem@claude-ecosystem
 ```
 
-## Verify the install
-
-A sample PDF with Turkish text (both a real text layer and an embedded
-image containing Turkish text) is included at `examples/sample-turkish.pdf`.
-See `examples/generate_sample_pdf.py` for how it was generated.
-
-After installing, ask Claude Code to convert it:
-
-```
-Convert examples/sample-turkish.pdf to markdown
-```
-
-Claude should delegate to the `pdf-to-md` subagent and return the full
-Markdown content, including OCR'd Turkish text from the embedded image on
-page 2. Try it with more than one file too (e.g. attach the same PDF twice,
-or point at two different PDFs) to see the multi-file output.
-
-Also try it *without* asking for a conversion, to confirm the automatic
-trigger works:
-
-```
-What does examples/sample-turkish.pdf say about the weather?
-```
-
-Claude should still delegate to `pdf-to-md` first to get the content, then
-answer the actual question from it — you shouldn't need to say "convert" or
-"read" at all.
-
-The subagent's reply always starts with the line
-`[claude-ecosystem:pdf-to-md ran]` — that's your confirmation it actually
-executed, rather than the main agent answering on its own without
-delegating. It appears on every reply from this agent, success or error;
-if you don't see it, delegation didn't happen.
-
-You can also run the conversion script directly, without Claude Code, after
-running `./install.sh`:
-
-```bash
-./install.sh
-PDF_TO_MD_PYLIBS_DIR="$(pwd)/.plugin-data/pylibs" \
-PDF_TO_MD_TESSDATA_DIR="$(pwd)/.plugin-data/tessdata" \
-  python scripts/pdf_to_md.py examples/sample-turkish.pdf
-# or several at once:
-  python scripts/pdf_to_md.py examples/sample-turkish.pdf examples/sample-turkish.pdf
-
-PDF_TO_MD_PYLIBS_DIR="$(pwd)/.plugin-data/pylibs" \
-PDF_TO_MD_TESSDATA_DIR="$(pwd)/.plugin-data/tessdata" \
-  python scripts/test_turkish_roundtrip.py
-```
-
-## How it works
-
-**Enforcing that PDFs always go through this agent.** `hooks/hooks.json`
-registers a `PreToolUse` hook, scoped to the `Read` tool, that runs for the
-whole session — not just while the `pdf-to-md` subagent is active.
-`scripts/block_pdf_read.py` reads each `Read` call's JSON input from stdin
-and, if `tool_input.file_path` ends in `.pdf`, exits with code 2 and a
-stderr message telling Claude to delegate to `pdf-to-md` instead. This is
-necessary because Claude's built-in `Read` tool has native PDF support of
-its own (no OCR, no Turkish-character guarantee) — without the hook,
-instructions alone are competing against a capability the model already
-has and can lose, especially for PDFs that arrive as chat attachments
-rather than typed paths. The `pdf-to-md` agent's own tools are `Bash` only
-(no `Read`) so it can't trip this same block while validating a file
-exists.
-
-`agents/pdf-to-md.md` defines the subagent: it filters the paths it was
-given down to just `.pdf` files (leaving anything else for the calling
-agent), validates each one exists, shells out to `scripts/pdf_to_md.py`
-with all of them in a single invocation (pointing it at the auto-installed
-dependencies via two environment variables), and passes the script's output
-straight through per file. All the actual PDF parsing, text-extraction,
-garbled-text detection, and OCR logic lives in the Python script, not in
-the model — this keeps conversion deterministic and keeps a cheap model
-(`haiku`) sufficient for the agent itself.
-
-`pdf_to_md.py` accepts one or more paths on the command line and converts
-each independently, so a single corrupted/encrypted/timed-out file doesn't
-block the rest of the batch. It prints one delimited block per file:
-
-```
-===PDF-TO-MD-FILE-START===<path>
-STATUS: OK
-<the full Markdown for this file>
-===PDF-TO-MD-FILE-END===
-```
-
-(or `STATUS: ERROR` followed by that file's error message). The agent
-parses strictly on those marker lines — never on Markdown-looking content —
-since a converted document can itself contain lines that look like headers
-or separators.
-
-`scripts/pdf_to_md.py` uses [PyMuPDF](https://pymupdf.readthedocs.io/) for
-both text extraction and page rendering (no separate Poppler/`pdf2image`
-dependency is needed), and [pytesseract](https://github.com/madmaze/pytesseract)
-for OCR. Two environment variables (set automatically by the agent, and
-produced by `scripts/bootstrap.sh`) let it use the auto-installed
-dependencies instead of whatever is on the system:
-
-| Variable | Purpose |
-| --- | --- |
-| `PDF_TO_MD_PYLIBS_DIR` | Added to `sys.path` before importing PyMuPDF/pytesseract/Pillow |
-| `PDF_TO_MD_TESSDATA_DIR` | Set as `TESSDATA_PREFIX` so OCR uses the bundled `eng`+`tur` language data |
-
-The script also checks a couple of well-known install paths directly if
-`tesseract` isn't resolvable via `PATH` yet — on Windows, a just-installed
-binary's `PATH` update doesn't reach a process (Claude Code included) that
-was already running before the install happened, only new ones, so waiting
-for `shutil.which` alone would fail on the very first use after install.
-
-Before running OCR, the script also proactively checks that the Turkish
-language pack is actually available (`pytesseract.get_languages()`) rather
-than trusting Tesseract to error when it's missing — some Tesseract builds
-silently OCR with only the languages that *are* available and return
-plausible-but-wrong text with no warning at all when `tur` is absent. This
-check turns that into an explicit `ERROR:` instead.
-
-**Timeout / large documents:** the script tracks wall-clock time across
-pages and aborts that file with `ERROR: processing timed out after <N>s ...`
-if it exceeds `PDF_TO_MD_TIMEOUT_SECONDS` (default 300 seconds) — this
-budget applies **per file**, so one large document timing out doesn't eat
-into the budget for the others in the same batch. It also logs
-`Processing page X/N...` (and, for a multi-file batch, `File X/N: <path>`)
-to stderr, so a long-running conversion is visible rather than looking hung.
-
-## Security note
-
-`pdf_to_md.py` parses arbitrary PDF content and runs OCR over embedded
-images. Only run it against PDF files you trust — as with any file parser,
-a maliciously crafted PDF is a potential attack surface.
-
-## If the `haiku` model is deprecated
-
-The `pdf-to-md` agent's model is set in the `model:` field of
-[`agents/pdf-to-md.md`](agents/pdf-to-md.md). If the `haiku` alias is ever
-retired, update that one field to the current low-cost model alias or a full
-model ID — see "Choose a model" in the
-[Claude Code sub-agents docs](https://code.claude.com/docs/en/sub-agents#choose-a-model).
+There's nothing to verify yet since there's no agent or skill installed —
+this just confirms the plugin loads cleanly.
 
 ## Roadmap
 
-This plugin is meant to grow. To add a new agent, drop a `.md` file in
-`agents/`. To add a new skill, add a `<skill-name>/SKILL.md` directory under
-`skills/`. Both are picked up automatically — nothing else in
-`.claude-plugin/plugin.json` or `.claude-plugin/marketplace.json` needs to
-change for a new agent or skill to be discovered. If a future agent needs
-its own setup, extend `hooks/hooks.json`'s `SessionStart` entry (or add a
-second one) rather than asking users to run something manually.
+To add a new agent, drop a `.md` file in `agents/` (create the directory —
+it was removed along with the last agent). To add a new skill, add a
+`<skill-name>/SKILL.md` directory under `skills/`. Both are picked up
+automatically — nothing in `.claude-plugin/plugin.json` or
+`.claude-plugin/marketplace.json` needs to change for a new agent or skill
+to be discovered.
 
 ## License
 

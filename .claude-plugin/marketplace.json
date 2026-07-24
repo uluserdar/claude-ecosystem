@@ -9,7 +9,7 @@
     {
       "name": "claude-ecosystem",
       "source": "./",
-      "description": "A growing personal collection of Claude Code agents and skills. Ships pdf-to-md, a subagent that converts PDF files to Markdown with OCR and Turkish-language support."
+      "description": "A growing personal collection of Claude Code agents and skills."
     }
   ]
 }
