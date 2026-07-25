@@ -4,12 +4,13 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
 
 ## What's in here right now
 
-Six skills — [`ask-me`, `create-plan`, `project-analyze`, `to-specs`,
-`to-tickets`, and `implement`](#skills), see below — plus 11 subagents: 5
-that back ask-me's optional critique-panel step, 2 that back create-plan, 2
-that back project-analyze, 1 that backs to-specs, and 1 that backs
-to-tickets (see [Agents](#agents)). This started as a clean
-plugin/marketplace shell, ready for the first agent or skill to be added.
+Seven skills — [`ask-me`, `create-plan`, `project-analyze`, `to-specs`,
+`to-tickets`, `implement`, and `manage-skills`](#skills), see below — plus
+12 subagents: 5 that back ask-me's optional critique-panel step, 2 that back
+create-plan, 2 that back project-analyze, 1 that backs to-specs, 1 that
+backs to-tickets, and 1 that backs manage-skills (see [Agents](#agents)).
+This started as a clean plugin/marketplace shell, ready for the first agent
+or skill to be added.
 
 A PDF-to-Markdown subagent (`pdf-to-md`) was built and tested here first,
 but was removed: forcing every PDF interaction through a subagent (via a
@@ -139,6 +140,24 @@ Unlike the other skills here, it does not auto-trigger from conversation
 be run explicitly with `/implement`. Adapted from
 [mattpocock/skills](https://github.com/mattpocock/skills/tree/main/skills/engineering/implement).
 
+### `manage-skills`
+
+Creates a new skill, or diagnoses and improves an existing one, in the
+target project's `.claude/skills/` directory as the project evolves — e.g.
+an auto-generated ".NET developer" domain skill that later proves
+insufficient. It's a pure router: it delegates entirely to the
+`skill-writer` subagent, which checks whether a matching skill already
+exists to decide create vs. improve mode. In improve mode it diagnoses the
+gap first — from a concrete complaint, or by searching the conversation for
+where the skill fell short and asking the user for a scenario if there
+isn't enough signal — classifies the root cause (narrow trigger phrases,
+missing instructions, or stale constraints), and applies a targeted edit
+rather than rewriting the file.
+
+Unlike `create-skill` (which only creates, and is invoked internally by
+`plan-writer`/`analyzer`), `skill-writer` also improves existing skills and
+is reachable directly by the user through this skill.
+
 ## Agents
 
 Five subagents (`ask-me-devils-advocate`, `ask-me-first-principles-thinker`,
@@ -175,6 +194,13 @@ user, and — with confirmation — publishes it either as GitHub issues
 labeled `ready-for-agent` or as local markdown files under
 `docs/tickets/`.
 
+One more subagent backs `manage-skills`: `skill-writer` detects whether a
+matching skill already exists in the target project to decide create vs.
+improve mode; in create mode it runs the same interview/generation flow as
+`create-skill`, and in improve mode it diagnoses why an existing skill fell
+short (narrow triggers, missing instructions, or stale constraints) before
+applying a targeted edit.
+
 ## Repository structure
 
 ```
@@ -189,7 +215,8 @@ claude-ecosystem/
 │   ├── analyzer.md          # project-analyze's analysis + orchestration subagent
 │   ├── create-analyze.md    # project-analyze's per-category doc-writing subagent
 │   ├── spec-writer.md       # to-specs's synthesis + generation subagent
-│   └── ticket-writer.md     # to-tickets's breakdown + publishing subagent
+│   ├── ticket-writer.md     # to-tickets's breakdown + publishing subagent
+│   └── skill-writer.md      # manage-skills's create/diagnose/improve subagent
 ├── skills/
 │   ├── ask-me/
 │   │   └── SKILL.md         # ask-me skill definition
@@ -201,8 +228,10 @@ claude-ecosystem/
 │   │   └── SKILL.md         # to-specs skill definition
 │   ├── to-tickets/
 │   │   └── SKILL.md         # to-tickets skill definition
-│   └── implement/
-│       └── SKILL.md         # implement skill definition
+│   ├── implement/
+│   │   └── SKILL.md         # implement skill definition
+│   └── manage-skills/
+│       └── SKILL.md         # manage-skills skill definition
 ├── docs/
 │   └── ask-me.md            # how ask-me works, in plain terms
 ├── LICENSE                  # MIT
@@ -236,7 +265,8 @@ trigger and start its interview. Or say "let's plan this release" —
 `create-plan` should trigger and hand off to `plan-writer`. Or say "spec
 this out" — `to-specs` should trigger and hand off to `spec-writer`. Or say
 "break this into tickets" — `to-tickets` should trigger and hand off to
-`ticket-writer`.
+`ticket-writer`. Or say "bu skill'i geliştir" about an existing skill —
+`manage-skills` should trigger and hand off to `skill-writer`.
 
 ## Roadmap
 
