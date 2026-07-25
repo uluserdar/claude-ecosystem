@@ -4,10 +4,11 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
 
 ## What's in here right now
 
-Two skills — [`ask-me` and `create-plan`](#skills), see below — plus 7
-subagents: 5 that back ask-me's optional critique-panel step, and 2 that
-back create-plan (see [Agents](#agents)). This started as a clean
-plugin/marketplace shell, ready for the first agent or skill to be added.
+Three skills — [`ask-me`, `create-plan`, and `project-analyze`](#skills),
+see below — plus 9 subagents: 5 that back ask-me's optional critique-panel
+step, 2 that back create-plan, and 2 that back project-analyze (see
+[Agents](#agents)). This started as a clean plugin/marketplace shell, ready
+for the first agent or skill to be added.
 
 A PDF-to-Markdown subagent (`pdf-to-md`) was built and tested here first,
 but was removed: forcing every PDF interaction through a subagent (via a
@@ -54,6 +55,26 @@ developer role) and delegate creating that project-specific skill to the
 Use it for planning multi-step work you want to track over time — not for
 marking existing plan steps as done, which is out of scope for this skill.
 
+### `project-analyze`
+
+Generates a structured set of project analysis/documentation files under
+`docs/analyze/<category>/` in the current project, covering system,
+database, backend, frontend, and test aspects — technology stack,
+architecture diagrams (Mermaid), folder structure, workflows, UML, API
+documentation and containerization notes (when applicable), data
+dictionary, ER diagram, naming conventions, and checkbox-tracked
+improvement/refactor/normalization suggestions. For a new/empty project it
+interviews the user about their intended design; for an existing project
+it reads and reports what's actually there. It's a pure router: it
+delegates the entire flow to the `analyzer` subagent, which processes
+categories sequentially (system → database → backend → frontend → test),
+delegates file writing to `create-analyze` per category, and can invoke
+`create-skill` when analysis surfaces a technology with no matching skill
+in the target project yet.
+
+Analysis docs are always referenced from the target project's `CLAUDE.md`
+and must be committed to git (never gitignored), unlike `docs/release-plans/`.
+
 ## Agents
 
 Five subagents (`ask-me-devils-advocate`, `ask-me-first-principles-thinker`,
@@ -72,6 +93,13 @@ user to design and generate a specialized-domain skill on demand (e.g. a
 the ask-me-* roles, these two aren't fixed critique roles — they run real
 interactive interviews and write files.
 
+Two more subagents back `project-analyze`: `analyzer` owns mode detection,
+the interview or codebase analysis, technology-skill gap detection (calling
+`create-skill` when needed), and orchestrates document generation category
+by category; `create-analyze` is invoked once per category to write that
+category's Markdown files under `docs/analyze/` and idempotently reference
+them from the target project's `CLAUDE.md`.
+
 ## Repository structure
 
 ```
@@ -82,12 +110,16 @@ claude-ecosystem/
 ├── agents/
 │   ├── ask-me-*.md          # ask-me's 5 critique-panel subagent roles
 │   ├── plan-writer.md       # create-plan's interview + generation subagent
-│   └── create-skill.md      # reusable specialized-skill creation subagent
+│   ├── create-skill.md      # reusable specialized-skill creation subagent
+│   ├── analyzer.md          # project-analyze's analysis + orchestration subagent
+│   └── create-analyze.md    # project-analyze's per-category doc-writing subagent
 ├── skills/
 │   ├── ask-me/
 │   │   └── SKILL.md         # ask-me skill definition
-│   └── create-plan/
-│       └── SKILL.md         # create-plan skill definition
+│   ├── create-plan/
+│   │   └── SKILL.md         # create-plan skill definition
+│   └── project-analyze/
+│       └── SKILL.md         # project-analyze skill definition
 ├── docs/
 │   └── ask-me.md            # how ask-me works, in plain terms
 ├── LICENSE                  # MIT
