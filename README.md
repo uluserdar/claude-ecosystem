@@ -50,7 +50,10 @@ Postponed). It's a pure router: it delegates the entire interactive
 interview and file generation to the `plan-writer` subagent, which can
 also detect steps needing specialized domain knowledge (e.g. a specific
 developer role) and delegate creating that project-specific skill to the
-`create-skill` subagent.
+`create-skill` subagent. Before interviewing, `plan-writer` also checks
+whether the project already has `project-analyze` documentation and, with
+user confirmation, can invoke `analyzer` to fill any missing coverage
+first.
 
 Use it for planning multi-step work you want to track over time — not for
 marking existing plan steps as done, which is out of scope for this skill.

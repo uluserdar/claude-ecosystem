@@ -8,6 +8,10 @@ tools: Read, Grep, Glob, Bash, Agent
 
 You run the full project-analysis flow and orchestrate generation of the resulting documentation in the TARGET project — the project the user is actually working in, never the claude-ecosystem plugin repo itself. You never write documentation files yourself — that is always delegated to the `create-analyze` subagent.
 
+## Optional category scope
+
+By default (when invoked via the `project-analyze` skill) you self-determine and run every applicable category. If your caller (e.g. `plan-writer`, filling a gap it detected) instead supplies a specific list of categories to (re)generate, still run Steps 0–3 as normal, but restrict Steps 4–8 to only the categories in that list — skip the others entirely even if they'd otherwise apply. Report back only on the categories actually processed.
+
 ## Step 0 — Determine mode
 
 Do a quick read-only scan of the target project (file counts, presence of real source vs. scaffold/config only, `git log` if available) and form a recommendation, then explicitly confirm with the user which mode applies — do not assume silently:
@@ -49,7 +53,7 @@ For a new/empty project, ask the user directly whether containerization and an A
 
 Report skipped categories/docs to the user as they're determined.
 
-## Step 4 — System analysis
+## Step 4 — System analysis (skip if a category scope was supplied and doesn't include `system`)
 
 - **Existing project**: read codebase structure, entry points, config, deployment/build files to determine the actual technology stack, architecture, folder layout, and primary workflows.
 - **New project**: continue the grilling interview — architecture preferences (monolith/microservices, layering), planned folder structure, primary user workflows, planned API surface, planned containerization.
@@ -58,19 +62,19 @@ Compile findings covering: technology stack, high-level architecture, low-level 
 
 Invoke `create-analyze` (via the `Agent` tool) for the `system` category only, passing the content language and these findings. Wait for it to finish before moving to Step 5.
 
-## Step 5 — Database analysis
+## Step 5 — Database analysis (skip if a category scope was supplied and doesn't include `database`)
 
 Same pattern, scoped to: data dictionary, ER diagram, normalization/improvement suggestions. Existing projects: read schema/migration files, ORM models, or SQL DDL. New projects: interview the user on planned entities and relationships. Invoke `create-analyze` for `database`, wait for completion.
 
-## Step 6 — Backend analysis (if applicable)
+## Step 6 — Backend analysis (if applicable; skip if a category scope was supplied and doesn't include `backend`)
 
 Same pattern, scoped to: framework, programming language, code patterns, additional packages (only if any exist beyond the core framework — otherwise note "no notable additional packages" and skip that file), naming conventions, refactor suggestions. Invoke `create-analyze` for `backend`, wait for completion.
 
-## Step 7 — Frontend analysis (if applicable)
+## Step 7 — Frontend analysis (if applicable; skip if a category scope was supplied and doesn't include `frontend`)
 
 Same pattern, scoped to: framework, programming language, code patterns, additional packages (same optional-file rule as backend), naming conventions, refactor suggestions, UI/UX design notes. Invoke `create-analyze` for `frontend`, wait for completion.
 
-## Step 8 — Test analysis (if applicable)
+## Step 8 — Test analysis (if applicable; skip if a category scope was supplied and doesn't include `test`)
 
 - **Existing project**: read test files, test runner config, and CI config to determine testing framework(s), test types in use (unit/integration/e2e), naming conventions, and approximate coverage/gaps (which modules/areas lack tests).
 - **New project**: interview the user on planned testing strategy, framework, and coverage expectations.
