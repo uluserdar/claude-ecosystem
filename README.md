@@ -4,10 +4,10 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
 
 ## What's in here right now
 
-One skill — [`ask-me`](#skills), see below — plus 5 subagents that back
-its optional critique-panel step (see [Agents](#agents)). This started as
-a clean plugin/marketplace shell, ready for the first agent or skill to
-be added.
+Two skills — [`ask-me` and `create-plan`](#skills), see below — plus 7
+subagents: 5 that back ask-me's optional critique-panel step, and 2 that
+back create-plan (see [Agents](#agents)). This started as a clean
+plugin/marketplace shell, ready for the first agent or skill to be added.
 
 A PDF-to-Markdown subagent (`pdf-to-md`) was built and tested here first,
 but was removed: forcing every PDF interaction through a subagent (via a
@@ -40,6 +40,20 @@ things with a quick, direct answer.
 
 [![Learn more](https://img.shields.io/badge/Learn%20more-how%20ask--me%20works-blue)](docs/ask-me.md)
 
+### `create-plan`
+
+Turns a goal or release idea into a structured, phase/step release plan
+under `docs/release-plans/` in the current project, with per-step
+reference docs and progress tracking (Not Started / In Progress / Done /
+Postponed). It's a pure router: it delegates the entire interactive
+interview and file generation to the `plan-writer` subagent, which can
+also detect steps needing specialized domain knowledge (e.g. a specific
+developer role) and delegate creating that project-specific skill to the
+`create-skill` subagent.
+
+Use it for planning multi-step work you want to track over time — not for
+marking existing plan steps as done, which is out of scope for this skill.
+
 ## Agents
 
 Five subagents (`ask-me-devils-advocate`, `ask-me-first-principles-thinker`,
@@ -50,6 +64,14 @@ preference is turned on, to review the drafted final answer before it's
 delivered. See [docs/ask-me.md](docs/ask-me.md) for how the panel fits
 into the flow.
 
+Two more subagents back `create-plan`: `plan-writer` runs its interview and
+generates/extends release-plan files in the target project, and
+`create-skill` is an independently reusable subagent that interviews the
+user to design and generate a specialized-domain skill on demand (e.g. a
+"SQL developer" skill) into the target project's `.claude/skills/`. Unlike
+the ask-me-* roles, these two aren't fixed critique roles — they run real
+interactive interviews and write files.
+
 ## Repository structure
 
 ```
@@ -58,10 +80,14 @@ claude-ecosystem/
 │   ├── plugin.json          # plugin metadata
 │   └── marketplace.json     # marketplace catalog listing this plugin
 ├── agents/
-│   └── ask-me-*.md          # ask-me's 5 critique-panel subagent roles
+│   ├── ask-me-*.md          # ask-me's 5 critique-panel subagent roles
+│   ├── plan-writer.md       # create-plan's interview + generation subagent
+│   └── create-skill.md      # reusable specialized-skill creation subagent
 ├── skills/
-│   └── ask-me/
-│       └── SKILL.md         # ask-me skill definition
+│   ├── ask-me/
+│   │   └── SKILL.md         # ask-me skill definition
+│   └── create-plan/
+│       └── SKILL.md         # create-plan skill definition
 ├── docs/
 │   └── ask-me.md            # how ask-me works, in plain terms
 ├── LICENSE                  # MIT
@@ -91,7 +117,8 @@ To test locally before pushing anywhere, point at the folder directly:
 ```
 
 To verify it loaded, ask a complex, multi-part question — `ask-me` should
-trigger and start its interview.
+trigger and start its interview. Or say "let's plan this release" —
+`create-plan` should trigger and hand off to `plan-writer`.
 
 ## Roadmap
 
