@@ -121,9 +121,14 @@ those produced.
 
 Implements a piece of work from an existing spec (`docs/specs/` or a
 release-plan step) or set of tickets (`docs/tickets/` or GitHub issues
-labeled `ready-for-agent`) — using `/tdd` where reasonable test seams
-exist, regular type-checking and test runs, a `/code-review` pass, and a
-commit to the current branch.
+labeled `ready-for-agent`). It never commits directly to `master`: it opens
+a task branch from `master` before touching any code, and uses `/tdd`
+where reasonable test seams exist, regular type-checking and test runs, a
+`/code-review` pass, and a commit — only after explicit confirmation — to
+that branch. It also documents this git workflow policy in the target
+project's `CLAUDE.md` under a `## Git Workflow (implement skill)` marker
+(added once, idempotently, the same way `create-analyze` maintains its own
+marker).
 
 It also closes gaps the other skills here explicitly leave open: if the
 spec traces back to a `docs/release-plans/references/` step, it flips that
@@ -133,9 +138,9 @@ project's `CLAUDE.md` has a `## Project Analysis` marker, it checks the
 files touched against `project-analyze`'s categories and, when any look
 stale, invokes `analyzer` directly (scoped to just those categories,
 bypassing the `project-analyze` skill) to refresh them. And — always with
-explicit confirmation per action — it can push the branch, open a PR
-(auto-linking a `Closes #<n>` issue), and once merged, close that issue and
-delete the branch both locally and on the remote.
+a **separate** explicit confirmation per action — it can push the branch,
+open a PR (auto-linking a `Closes #<n>` issue), and once merged, close that
+issue and delete the branch both locally and on the remote.
 
 Unlike the other skills here, it does not auto-trigger from conversation
 (`disable-model-invocation: true`, ported as-is from its source) — it must
