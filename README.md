@@ -4,11 +4,12 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
 
 ## What's in here right now
 
-Three skills — [`ask-me`, `create-plan`, and `project-analyze`](#skills),
-see below — plus 9 subagents: 5 that back ask-me's optional critique-panel
-step, 2 that back create-plan, and 2 that back project-analyze (see
-[Agents](#agents)). This started as a clean plugin/marketplace shell, ready
-for the first agent or skill to be added.
+Four skills — [`ask-me`, `create-plan`, `project-analyze`, and
+`to-specs`](#skills), see below — plus 10 subagents: 5 that back ask-me's
+optional critique-panel step, 2 that back create-plan, 2 that back
+project-analyze, and 1 that backs to-specs (see [Agents](#agents)). This
+started as a clean plugin/marketplace shell, ready for the first agent or
+skill to be added.
 
 A PDF-to-Markdown subagent (`pdf-to-md`) was built and tested here first,
 but was removed: forcing every PDF interaction through a subagent (via a
@@ -78,6 +79,24 @@ in the target project yet.
 Analysis docs are always referenced from the target project's `CLAUDE.md`
 and must be committed to git (never gitignored), unlike `docs/release-plans/`.
 
+### `to-specs`
+
+Turns the current conversation — plus, if relevant, an existing
+`create-plan` release-plan step — into a full spec/PRD, with no interview:
+it's pure synthesis of what's already been discussed. It's a pure router:
+it delegates entirely to the `spec-writer` subagent, which figures out
+whether the spec belongs in an existing
+`docs/release-plans/references/{plan}/{phase}/{step}.md` step doc (enriching
+it in place) or in a standalone `docs/specs/` file, sketches the test seams,
+writes the spec using a fixed template (Problem Statement, Solution, User
+Stories, Implementation Decisions, Testing Decisions, Out of Scope, Further
+Notes), and — after explicit confirmation — can publish it as a GitHub issue
+tagged `ready-for-agent`.
+
+Runs standalone only: it's never chained into or invoked from `plan-writer`,
+and it never creates a new release plan itself — that stays `create-plan`'s
+job.
+
 ## Agents
 
 Five subagents (`ask-me-devils-advocate`, `ask-me-first-principles-thinker`,
@@ -103,6 +122,11 @@ by category; `create-analyze` is invoked once per category to write that
 category's Markdown files under `docs/analyze/` and idempotently reference
 them from the target project's `CLAUDE.md`.
 
+One more subagent backs `to-specs`: `spec-writer` determines the right
+target file, explores the codebase, sketches test seams, synthesizes the
+spec, writes it, and — with confirmation — publishes it to GitHub as an
+issue labeled `ready-for-agent`.
+
 ## Repository structure
 
 ```
@@ -115,14 +139,17 @@ claude-ecosystem/
 │   ├── plan-writer.md       # create-plan's interview + generation subagent
 │   ├── create-skill.md      # reusable specialized-skill creation subagent
 │   ├── analyzer.md          # project-analyze's analysis + orchestration subagent
-│   └── create-analyze.md    # project-analyze's per-category doc-writing subagent
+│   ├── create-analyze.md    # project-analyze's per-category doc-writing subagent
+│   └── spec-writer.md       # to-specs's synthesis + generation subagent
 ├── skills/
 │   ├── ask-me/
 │   │   └── SKILL.md         # ask-me skill definition
 │   ├── create-plan/
 │   │   └── SKILL.md         # create-plan skill definition
-│   └── project-analyze/
-│       └── SKILL.md         # project-analyze skill definition
+│   ├── project-analyze/
+│   │   └── SKILL.md         # project-analyze skill definition
+│   └── to-specs/
+│       └── SKILL.md         # to-specs skill definition
 ├── docs/
 │   └── ask-me.md            # how ask-me works, in plain terms
 ├── LICENSE                  # MIT
@@ -153,7 +180,8 @@ To test locally before pushing anywhere, point at the folder directly:
 
 To verify it loaded, ask a complex, multi-part question — `ask-me` should
 trigger and start its interview. Or say "let's plan this release" —
-`create-plan` should trigger and hand off to `plan-writer`.
+`create-plan` should trigger and hand off to `plan-writer`. Or say "spec
+this out" — `to-specs` should trigger and hand off to `spec-writer`.
 
 ## Roadmap
 
