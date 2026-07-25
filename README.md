@@ -4,12 +4,12 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
 
 ## What's in here right now
 
-Four skills — [`ask-me`, `create-plan`, `project-analyze`, and
-`to-specs`](#skills), see below — plus 10 subagents: 5 that back ask-me's
+Five skills — [`ask-me`, `create-plan`, `project-analyze`, `to-specs`, and
+`to-tickets`](#skills), see below — plus 11 subagents: 5 that back ask-me's
 optional critique-panel step, 2 that back create-plan, 2 that back
-project-analyze, and 1 that backs to-specs (see [Agents](#agents)). This
-started as a clean plugin/marketplace shell, ready for the first agent or
-skill to be added.
+project-analyze, 1 that backs to-specs, and 1 that backs to-tickets (see
+[Agents](#agents)). This started as a clean plugin/marketplace shell, ready
+for the first agent or skill to be added.
 
 A PDF-to-Markdown subagent (`pdf-to-md`) was built and tested here first,
 but was removed: forcing every PDF interaction through a subagent (via a
@@ -97,6 +97,23 @@ Runs standalone only: it's never chained into or invoked from `plan-writer`,
 and it never creates a new release plan itself — that stays `create-plan`'s
 job.
 
+### `to-tickets`
+
+Turns a plan, spec, or the current conversation into a set of **tickets** —
+tracer-bullet vertical slices, each cutting a narrow but complete path
+through every layer, each declaring the other tickets that **block** it.
+It's a pure router: it delegates entirely to the `ticket-writer` subagent,
+which drafts the breakdown (including the expand-contract exception for
+wide mechanical refactors), quizzes the user on granularity and blocking
+edges until approved, then publishes — as GitHub issues labeled
+`ready-for-agent` if the target project has a GitHub remote, otherwise as
+one markdown file per ticket under `docs/tickets/<feature-slug>/` in the
+target project.
+
+Runs standalone only: it never chains into or is invoked from `to-specs` or
+`plan-writer`, even though the user may feed it a spec or plan either of
+those produced.
+
 ## Agents
 
 Five subagents (`ask-me-devils-advocate`, `ask-me-first-principles-thinker`,
@@ -127,6 +144,12 @@ target file, explores the codebase, sketches test seams, synthesizes the
 spec, writes it, and — with confirmation — publishes it to GitHub as an
 issue labeled `ready-for-agent`.
 
+One more subagent backs `to-tickets`: `ticket-writer` drafts the
+tracer-bullet ticket breakdown with blocking edges, confirms it with the
+user, and — with confirmation — publishes it either as GitHub issues
+labeled `ready-for-agent` or as local markdown files under
+`docs/tickets/`.
+
 ## Repository structure
 
 ```
@@ -140,7 +163,8 @@ claude-ecosystem/
 │   ├── create-skill.md      # reusable specialized-skill creation subagent
 │   ├── analyzer.md          # project-analyze's analysis + orchestration subagent
 │   ├── create-analyze.md    # project-analyze's per-category doc-writing subagent
-│   └── spec-writer.md       # to-specs's synthesis + generation subagent
+│   ├── spec-writer.md       # to-specs's synthesis + generation subagent
+│   └── ticket-writer.md     # to-tickets's breakdown + publishing subagent
 ├── skills/
 │   ├── ask-me/
 │   │   └── SKILL.md         # ask-me skill definition
@@ -148,8 +172,10 @@ claude-ecosystem/
 │   │   └── SKILL.md         # create-plan skill definition
 │   ├── project-analyze/
 │   │   └── SKILL.md         # project-analyze skill definition
-│   └── to-specs/
-│       └── SKILL.md         # to-specs skill definition
+│   ├── to-specs/
+│   │   └── SKILL.md         # to-specs skill definition
+│   └── to-tickets/
+│       └── SKILL.md         # to-tickets skill definition
 ├── docs/
 │   └── ask-me.md            # how ask-me works, in plain terms
 ├── LICENSE                  # MIT
@@ -181,7 +207,9 @@ To test locally before pushing anywhere, point at the folder directly:
 To verify it loaded, ask a complex, multi-part question — `ask-me` should
 trigger and start its interview. Or say "let's plan this release" —
 `create-plan` should trigger and hand off to `plan-writer`. Or say "spec
-this out" — `to-specs` should trigger and hand off to `spec-writer`.
+this out" — `to-specs` should trigger and hand off to `spec-writer`. Or say
+"break this into tickets" — `to-tickets` should trigger and hand off to
+`ticket-writer`.
 
 ## Roadmap
 
