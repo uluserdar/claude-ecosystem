@@ -4,12 +4,12 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
 
 ## What's in here right now
 
-Five skills — [`ask-me`, `create-plan`, `project-analyze`, `to-specs`, and
-`to-tickets`](#skills), see below — plus 11 subagents: 5 that back ask-me's
-optional critique-panel step, 2 that back create-plan, 2 that back
-project-analyze, 1 that backs to-specs, and 1 that backs to-tickets (see
-[Agents](#agents)). This started as a clean plugin/marketplace shell, ready
-for the first agent or skill to be added.
+Six skills — [`ask-me`, `create-plan`, `project-analyze`, `to-specs`,
+`to-tickets`, and `implement`](#skills), see below — plus 11 subagents: 5
+that back ask-me's optional critique-panel step, 2 that back create-plan, 2
+that back project-analyze, 1 that backs to-specs, and 1 that backs
+to-tickets (see [Agents](#agents)). This started as a clean
+plugin/marketplace shell, ready for the first agent or skill to be added.
 
 A PDF-to-Markdown subagent (`pdf-to-md`) was built and tested here first,
 but was removed: forcing every PDF interaction through a subagent (via a
@@ -114,6 +114,31 @@ Runs standalone only: it never chains into or is invoked from `to-specs` or
 `plan-writer`, even though the user may feed it a spec or plan either of
 those produced.
 
+### `implement`
+
+Implements a piece of work from an existing spec (`docs/specs/` or a
+release-plan step) or set of tickets (`docs/tickets/` or GitHub issues
+labeled `ready-for-agent`) — using `/tdd` where reasonable test seams
+exist, regular type-checking and test runs, a `/code-review` pass, and a
+commit to the current branch.
+
+It also closes gaps the other skills here explicitly leave open: if the
+spec traces back to a `docs/release-plans/references/` step, it flips that
+step's status to `In Progress` on start and `Done`/`Postponed` on finish —
+the one status word only, never the plan's structure. If the target
+project's `CLAUDE.md` has a `## Project Analysis` marker, it checks the
+files touched against `project-analyze`'s categories and, when any look
+stale, invokes `analyzer` directly (scoped to just those categories,
+bypassing the `project-analyze` skill) to refresh them. And — always with
+explicit confirmation per action — it can push the branch, open a PR
+(auto-linking a `Closes #<n>` issue), and once merged, close that issue and
+delete the branch both locally and on the remote.
+
+Unlike the other skills here, it does not auto-trigger from conversation
+(`disable-model-invocation: true`, ported as-is from its source) — it must
+be run explicitly with `/implement`. Adapted from
+[mattpocock/skills](https://github.com/mattpocock/skills/tree/main/skills/engineering/implement).
+
 ## Agents
 
 Five subagents (`ask-me-devils-advocate`, `ask-me-first-principles-thinker`,
@@ -174,8 +199,10 @@ claude-ecosystem/
 │   │   └── SKILL.md         # project-analyze skill definition
 │   ├── to-specs/
 │   │   └── SKILL.md         # to-specs skill definition
-│   └── to-tickets/
-│       └── SKILL.md         # to-tickets skill definition
+│   ├── to-tickets/
+│   │   └── SKILL.md         # to-tickets skill definition
+│   └── implement/
+│       └── SKILL.md         # implement skill definition
 ├── docs/
 │   └── ask-me.md            # how ask-me works, in plain terms
 ├── LICENSE                  # MIT
