@@ -4,11 +4,13 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
 
 ## What's in here right now
 
-Seven skills — [`ask-me`, `create-plan`, `project-analyze`, `to-specs`,
-`to-tickets`, `implement`, and `manage-skills`](#skills), see below — plus
-12 subagents: 5 that back ask-me's optional critique-panel step, 2 that back
-create-plan, 2 that back project-analyze, 1 that backs to-specs, 1 that
-backs to-tickets, and 1 that backs manage-skills (see [Agents](#agents)).
+Eight skills — [`ask-me`, `create-plan`, `project-analyze`, `to-specs`,
+`to-tickets`, `implement`, `manage-skills`, and `handoff`](#skills), see
+below — plus 12 subagents: 5 that back ask-me's optional critique-panel
+step, 2 that back create-plan, 2 that back project-analyze, 1 that backs
+to-specs, 1 that backs to-tickets, and 1 that backs manage-skills (see
+[Agents](#agents)). `handoff`, like `implement`, is self-contained and
+doesn't add a subagent of its own.
 This started as a clean plugin/marketplace shell, ready for the first agent
 or skill to be added.
 
@@ -158,6 +160,22 @@ Unlike `create-skill` (which only creates, and is invoked internally by
 `plan-writer`/`analyzer`), `skill-writer` also improves existing skills and
 is reachable directly by the user through this skill.
 
+### `handoff`
+
+Compacts the current conversation into a handoff document for a fresh
+agent to pick up — why we got here, what's been learned/tried, current
+state, and next steps — saved to the OS temp directory, never the project
+workspace. It includes a "Suggested skills" section pointing the next
+agent at whichever of this plugin's skills fit where the conversation left
+off, links out to existing artifacts (specs, plans, issues, commits)
+instead of duplicating them, and redacts sensitive information before
+writing anything to disk.
+
+Like `implement`, it does not auto-trigger from conversation
+(`disable-model-invocation: true`, ported as-is from its source) — it must
+be run explicitly with `/handoff`. Adapted from
+[mattpocock/skills](https://github.com/mattpocock/skills/tree/main/skills/productivity/handoff).
+
 ## Agents
 
 Five subagents (`ask-me-devils-advocate`, `ask-me-first-principles-thinker`,
@@ -230,8 +248,10 @@ claude-ecosystem/
 │   │   └── SKILL.md         # to-tickets skill definition
 │   ├── implement/
 │   │   └── SKILL.md         # implement skill definition
-│   └── manage-skills/
-│       └── SKILL.md         # manage-skills skill definition
+│   ├── manage-skills/
+│   │   └── SKILL.md         # manage-skills skill definition
+│   └── handoff/
+│       └── SKILL.md         # handoff skill definition
 ├── docs/
 │   └── ask-me.md            # how ask-me works, in plain terms
 ├── LICENSE                  # MIT
