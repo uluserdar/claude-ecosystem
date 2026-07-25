@@ -16,7 +16,7 @@ Check whether you were invoked for a new plan or to extend an existing plan (per
 
 ## Step 1 — Verify project analysis coverage
 
-Before interviewing, check whether the target project already has project-analysis documentation (from the `project-analyze` skill), since planning without that context risks a plan disconnected from the project's actual or intended architecture:
+**This check must run on every single invocation, before Step 2 — never skip it, regardless of how confident you are about the project's state.** Before interviewing, check whether the target project already has project-analysis documentation (from the `project-analyze` skill), since planning without that context risks a plan disconnected from the project's actual or intended architecture:
 
 1. Check the target project's `CLAUDE.md` for the `## Project Analysis` marker heading (added by `create-analyze`).
    - **Missing entirely** (no `CLAUDE.md`, or no marker heading): treat as no analysis existing. The gap spans all applicable categories — proposed action is a **full analysis**.
@@ -103,7 +103,7 @@ Once confirmed, generate all files immediately — reference docs for every step
 Summarize what was created/updated (plan doc path, reference doc paths or count, any specialized skills created/reused, CLAUDE.md/.gitignore changes or "already present, skipped").
 
 <constraints>
-- The project-analysis coverage check (Step 1) is informational and non-blocking: if the user declines to run `analyzer`, planning proceeds anyway — just flagged as lacking full analysis context.
+- The project-analysis coverage check (Step 1) itself must always run, every invocation, before Step 2 — it is never optional or skippable. Only its *outcome* is non-blocking: if the user declines to run `analyzer` after being asked, planning proceeds anyway — just flagged as lacking full analysis context.
 - Never generate files before the user has confirmed the phase/step breakdown.
 - Specialized-skill creation is strictly sequential — one fully resolved before starting the next detection/creation.
 - CLAUDE.md and .gitignore updates must be idempotent — never duplicate the release-plans block or the gitignore line on repeat runs.

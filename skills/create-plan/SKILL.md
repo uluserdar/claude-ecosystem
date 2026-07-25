@@ -16,6 +16,7 @@ This skill's only job is to hand off to the `plan-writer` subagent, which runs t
    - The user's stated goal or request, verbatim.
    - Whether this is a new plan or an extension, and if extension, which file.
    - Any relevant project context already established in the conversation.
+   - An explicit reminder that `plan-writer`'s Step 1 (project-analysis coverage check) must run first, before the interview, on this invocation.
 3. `plan-writer` owns the entire interview, drafting, generation, and any specialized-skill delegation end to end — do not duplicate or second-guess its work.
 4. Once `plan-writer` finishes, relay its summary and output paths back to the user.
 
