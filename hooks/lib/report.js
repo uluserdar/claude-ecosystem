@@ -96,40 +96,68 @@ function collectSubtree(edges, parentKey, flatMap, rollup) {
   }
 }
 
+const NO_SKILL_LABEL = "No skill";
+
 function buildSkillSections(entries) {
   const edges = buildEdges(entries);
   const topLevel = edges.get("root") || new Map();
 
-  const rows = [...topLevel.entries()]
-    .map(([topKey, selfTotals]) => {
-      const rollup = { ...emptyTotals(), tokens: { ...emptyTotals().tokens } };
-      const subtree = new Map();
-      collectSubtree(edges, topKey, subtree, rollup);
-      mergeTotals(rollup, selfTotals);
-      return { topKey, calls: selfTotals.count, rollup, subtree };
-    })
-    .sort((a, b) => b.calls - a.calls);
+  const rows = [...topLevel.entries()].map(([topKey, selfTotals]) => {
+    const rollup = { ...emptyTotals(), tokens: { ...emptyTotals().tokens } };
+    const subtree = new Map();
+    collectSubtree(edges, topKey, subtree, rollup);
+    mergeTotals(rollup, selfTotals);
+    return { topKey, type: splitKey(topKey).type, calls: selfTotals.count, selfTotals, rollup, subtree };
+  });
 
+  const skillRows = rows.filter((r) => r.type === "skill").sort((a, b) => b.calls - a.calls);
+  const directRows = rows.filter((r) => r.type !== "skill");
+
+  // Agent chains with no skill ancestor at all (root parent: null) fold into
+  // one synthetic "No skill" row in the same table, rather than each falsely
+  // appearing as if it were its own skill.
+  let noSkillRow = null;
+  if (directRows.length > 0) {
+    const rollup = { ...emptyTotals(), tokens: { ...emptyTotals().tokens } };
+    const subtree = new Map();
+    let calls = 0;
+    for (const row of directRows) {
+      calls += row.calls;
+      if (!subtree.has(row.topKey)) subtree.set(row.topKey, emptyTotals());
+      mergeTotals(subtree.get(row.topKey), row.selfTotals);
+      mergeTotals(rollup, row.selfTotals);
+      for (const [childKey, totals] of row.subtree) {
+        if (!subtree.has(childKey)) subtree.set(childKey, emptyTotals());
+        mergeTotals(subtree.get(childKey), totals);
+        mergeTotals(rollup, totals);
+      }
+    }
+    noSkillRow = { topKey: `skill:${NO_SKILL_LABEL}`, calls, rollup, subtree };
+  }
+
+  const tableRows = noSkillRow ? [...skillRows, noSkillRow] : skillRows;
+
+  const lines = ["## Skills", ""];
+  if (tableRows.length === 0) {
+    lines.push("_No skill invocations recorded yet._");
+    return lines.join("\n");
+  }
+
+  lines.push("| Skill | Calls | Total Duration | Input | Output | Cache Create | Cache Read |");
+  lines.push("|---|---|---|---|---|---|---|");
   const grandTotal = emptyTotals();
-  for (const row of rows) mergeTotals(grandTotal, { ...row.rollup, count: row.calls });
-
-  const lines = [
-    "## Skills",
-    "",
-    "| Skill | Calls | Total Duration | Input | Output | Cache Create | Cache Read |",
-    "|---|---|---|---|---|---|---|",
-  ];
-  for (const row of rows) {
+  for (const row of tableRows) {
     const { name } = splitKey(row.topKey);
     lines.push(
       `| ${name} | ${row.calls} | ${formatDuration(row.rollup.duration_ms)} | ${tokenCells(row.rollup.tokens).join(" | ")} |`
     );
+    mergeTotals(grandTotal, { ...row.rollup, count: row.calls });
   }
   lines.push(
     `| **Total** | ${grandTotal.count} | ${formatDuration(grandTotal.duration_ms)} | ${tokenCells(grandTotal.tokens).join(" | ")} |`
   );
 
-  for (const row of rows) {
+  for (const row of tableRows) {
     if (row.subtree.size === 0) continue;
     const { name } = splitKey(row.topKey);
     lines.push("", `### ${name}`, "");
