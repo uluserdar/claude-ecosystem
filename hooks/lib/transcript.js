@@ -78,6 +78,43 @@ async function wholeTranscriptTokens(transcriptPath) {
   return totals;
 }
 
+// Among candidateIds, finds whichever one's tool_result appears LAST in the
+// transcript (append-only log, so the last-seen match is almost certainly
+// the one that just triggered the current SubagentStop event). Used to
+// disambiguate which pending Agent call a SubagentStop event belongs to when
+// several were dispatched together in the same turn — evidence from the
+// transcript itself instead of guessing at SubagentStop payload field names.
+async function lastCompletedToolUseId(transcriptPath, candidateIds) {
+  if (!transcriptPath || !candidateIds || candidateIds.length === 0) return null;
+  let stream;
+  try {
+    stream = fs.createReadStream(transcriptPath, { encoding: "utf8" });
+  } catch {
+    return null;
+  }
+
+  const candidates = new Set(candidateIds);
+  let lastMatch = null;
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+  for await (const line of rl) {
+    if (!line.trim()) continue;
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const content = entry?.message?.content;
+    if (!Array.isArray(content)) continue;
+    for (const block of content) {
+      if (block?.type === "tool_result" && candidates.has(block.tool_use_id)) {
+        lastMatch = block.tool_use_id;
+      }
+    }
+  }
+  return lastMatch;
+}
+
 // Best-effort human-readable label for a session, read from its first user
 // message: the slash-command name if this was a command invocation,
 // otherwise the message text truncated. Falls back to null (caller uses the
@@ -118,4 +155,4 @@ async function sessionLabel(transcriptPath) {
   return null;
 }
 
-module.exports = { tokensForToolUse, wholeTranscriptTokens, sessionLabel, EMPTY_TOKENS };
+module.exports = { tokensForToolUse, wholeTranscriptTokens, lastCompletedToolUseId, sessionLabel, EMPTY_TOKENS };
