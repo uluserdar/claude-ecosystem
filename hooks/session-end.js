@@ -1,7 +1,7 @@
 const { isTrackingEnabled } = require("./lib/settings");
 const { loadState, deleteState } = require("./lib/state");
 const { appendLogEntry } = require("./lib/log");
-const { tokensForToolUse } = require("./lib/transcript");
+const { tokensForToolUse, sessionLabel } = require("./lib/transcript");
 const { generateReport } = require("./lib/report");
 const { readStdinJson } = require("./lib/io");
 const { logHookError } = require("./lib/debug-log");
@@ -16,9 +16,11 @@ async function main() {
     if (call.status !== "pending" || !call.cwd) continue;
     try {
       const tokens = await tokensForToolUse(call.transcript_path, toolUseId);
+      const sessionName = await sessionLabel(call.transcript_path);
       appendLogEntry(call.cwd, {
         time: new Date().toISOString(),
         session_id: sessionId,
+        session_label: sessionName,
         type: call.type,
         name: call.name,
         parent: call.parent,

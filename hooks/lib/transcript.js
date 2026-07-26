@@ -44,4 +44,44 @@ async function tokensForToolUse(transcriptPath, toolUseId) {
   return { ...EMPTY_TOKENS };
 }
 
-module.exports = { tokensForToolUse, EMPTY_TOKENS };
+// Best-effort human-readable label for a session, read from its first user
+// message: the slash-command name if this was a command invocation,
+// otherwise the message text truncated. Falls back to null (caller uses the
+// session id instead) if the transcript is missing or has no user message.
+async function sessionLabel(transcriptPath) {
+  if (!transcriptPath) return null;
+  let stream;
+  try {
+    stream = fs.createReadStream(transcriptPath, { encoding: "utf8" });
+  } catch {
+    return null;
+  }
+
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+  for await (const line of rl) {
+    if (!line.trim()) continue;
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (entry?.type !== "user") continue;
+    const content = entry.message?.content;
+    let text = null;
+    if (typeof content === "string") text = content;
+    else if (Array.isArray(content)) {
+      const block = content.find((b) => b?.type === "text");
+      text = block?.text || null;
+    }
+    if (!text) continue;
+    rl.close();
+    stream.close?.();
+    const commandMatch = text.match(/<command-name>\/?([^<]+)<\/command-name>/);
+    if (commandMatch) return commandMatch[1].trim();
+    return text.replace(/\s+/g, " ").trim().slice(0, 80);
+  }
+  return null;
+}
+
+module.exports = { tokensForToolUse, sessionLabel, EMPTY_TOKENS };

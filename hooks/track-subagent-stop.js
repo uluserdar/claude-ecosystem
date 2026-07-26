@@ -1,7 +1,7 @@
 const { isTrackingEnabled } = require("./lib/settings");
 const { listOpenCalls, takeCall, popStack } = require("./lib/state");
 const { appendLogEntry } = require("./lib/log");
-const { tokensForToolUse } = require("./lib/transcript");
+const { tokensForToolUse, sessionLabel } = require("./lib/transcript");
 const { readStdinJson } = require("./lib/io");
 const { logHookError } = require("./lib/debug-log");
 
@@ -34,10 +34,13 @@ async function main() {
   const call = takeCall(sessionId, toolUseId);
   if (!call) return;
 
-  const tokens = await tokensForToolUse(transcriptPath || call.transcript_path, toolUseId);
+  const resolvedTranscriptPath = transcriptPath || call.transcript_path;
+  const tokens = await tokensForToolUse(resolvedTranscriptPath, toolUseId);
+  const sessionName = await sessionLabel(resolvedTranscriptPath);
   appendLogEntry(call.cwd || cwd, {
     time: new Date().toISOString(),
     session_id: sessionId,
+    session_label: sessionName,
     type: call.type,
     name: call.name,
     parent: call.parent,

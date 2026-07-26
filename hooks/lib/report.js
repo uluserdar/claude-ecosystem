@@ -21,15 +21,6 @@ function addTotals(totals, entry) {
   totals.tokens.cache_read += t.cache_read || 0;
 }
 
-function mergeTotals(target, totals) {
-  target.count += totals.count;
-  target.duration_ms += totals.duration_ms;
-  target.tokens.input += totals.tokens.input;
-  target.tokens.output += totals.tokens.output;
-  target.tokens.cache_creation += totals.tokens.cache_creation;
-  target.tokens.cache_read += totals.tokens.cache_read;
-}
-
 async function readEntries(filePath) {
   const entries = [];
   const rl = readline.createInterface({
@@ -64,110 +55,71 @@ function splitKey(k) {
   return { type, name: nameParts.join(":") };
 }
 
-// parentKey|"root" -> Map(childKey -> totals). Each entry's `parent` only
-// records the immediate ancestor's (type, name) — not a full instance path —
-// so calls with identical (type, name) but different real ancestors can't be
-// told apart. Acceptable for now; would need ancestor-chain ids in the log
-// schema to fix properly.
-function buildEdges(entries) {
-  const edges = new Map();
+function sessionDisplayName(sessionId, label) {
+  const shortId = sessionId.slice(0, 8);
+  return label ? `${label} (${shortId})` : shortId;
+}
+
+// Skill tool_use tracking turned out to be unreliable — the same slash-command
+// invocation of the same skill produced a trackable "Skill" tool_use in some
+// sessions and none at all in others (harness-level, not something these hooks
+// control). session_id, by contrast, is always present on every entry. So
+// group by session instead of by (unreliable) skill/parent hierarchy: for each
+// session, sum every entry directly by (type, name) — no nesting, no
+// fallback heuristics — which makes "sub-table total == session row" a plain
+// arithmetic identity rather than something that can drift out of sync.
+function buildSessionSections(entries) {
+  const sessions = new Map(); // session_id -> { label, totals, byName: Map(key -> totals) }
   for (const entry of entries) {
-    const parentKey = entry.parent ? key(entry.parent.type, entry.parent.name) : "root";
-    const childKey = key(entry.type, entry.name);
-    if (!edges.has(parentKey)) edges.set(parentKey, new Map());
-    const children = edges.get(parentKey);
-    if (!children.has(childKey)) children.set(childKey, emptyTotals());
-    addTotals(children.get(childKey), entry);
-  }
-  return edges;
-}
-
-// Recursively merges every descendant of parentKey into flatMap (keyed by
-// childKey, for the per-skill sub-table) and into rollup (single accumulator,
-// for replacing the top-level row's own near-zero self stats).
-function collectSubtree(edges, parentKey, flatMap, rollup) {
-  const children = edges.get(parentKey);
-  if (!children) return;
-  for (const [childKey, totals] of children) {
-    if (!flatMap.has(childKey)) flatMap.set(childKey, emptyTotals());
-    mergeTotals(flatMap.get(childKey), totals);
-    mergeTotals(rollup, totals);
-    collectSubtree(edges, childKey, flatMap, rollup);
-  }
-}
-
-const NO_SKILL_LABEL = "No skill";
-
-function buildSkillSections(entries) {
-  const edges = buildEdges(entries);
-  const topLevel = edges.get("root") || new Map();
-
-  const rows = [...topLevel.entries()].map(([topKey, selfTotals]) => {
-    const rollup = { ...emptyTotals(), tokens: { ...emptyTotals().tokens } };
-    const subtree = new Map();
-    collectSubtree(edges, topKey, subtree, rollup);
-    mergeTotals(rollup, selfTotals);
-    return { topKey, type: splitKey(topKey).type, calls: selfTotals.count, selfTotals, rollup, subtree };
-  });
-
-  const skillRows = rows.filter((r) => r.type === "skill").sort((a, b) => b.calls - a.calls);
-  const directRows = rows.filter((r) => r.type !== "skill");
-
-  // Agent chains with no skill ancestor at all (root parent: null) fold into
-  // one synthetic "No skill" row in the same table, rather than each falsely
-  // appearing as if it were its own skill.
-  let noSkillRow = null;
-  if (directRows.length > 0) {
-    const rollup = { ...emptyTotals(), tokens: { ...emptyTotals().tokens } };
-    const subtree = new Map();
-    let calls = 0;
-    for (const row of directRows) {
-      calls += row.calls;
-      if (!subtree.has(row.topKey)) subtree.set(row.topKey, emptyTotals());
-      mergeTotals(subtree.get(row.topKey), row.selfTotals);
-      mergeTotals(rollup, row.selfTotals);
-      for (const [childKey, totals] of row.subtree) {
-        if (!subtree.has(childKey)) subtree.set(childKey, emptyTotals());
-        mergeTotals(subtree.get(childKey), totals);
-        mergeTotals(rollup, totals);
-      }
+    const sessionId = entry.session_id || "unknown";
+    if (!sessions.has(sessionId)) {
+      sessions.set(sessionId, { label: entry.session_label || null, totals: emptyTotals(), byName: new Map() });
     }
-    noSkillRow = { topKey: `skill:${NO_SKILL_LABEL}`, calls, rollup, subtree };
+    const session = sessions.get(sessionId);
+    if (!session.label && entry.session_label) session.label = entry.session_label;
+    addTotals(session.totals, entry);
+    const k = key(entry.type, entry.name);
+    if (!session.byName.has(k)) session.byName.set(k, emptyTotals());
+    addTotals(session.byName.get(k), entry);
   }
 
-  const tableRows = noSkillRow ? [...skillRows, noSkillRow] : skillRows;
+  const rows = [...sessions.entries()]
+    .map(([sessionId, s]) => ({ sessionId, ...s }))
+    .sort((a, b) => b.totals.count - a.totals.count);
 
-  const lines = ["## Skills", ""];
-  if (tableRows.length === 0) {
-    lines.push("_No skill invocations recorded yet._");
+  const lines = ["## Sessions", ""];
+  if (rows.length === 0) {
+    lines.push("_No usage recorded yet._");
     return lines.join("\n");
   }
 
-  lines.push("| Skill | Calls | Total Duration | Input | Output | Cache Create | Cache Read |");
+  lines.push("| Session | Calls | Total Duration | Input | Output | Cache Create | Cache Read |");
   lines.push("|---|---|---|---|---|---|---|");
   const grandTotal = emptyTotals();
-  for (const row of tableRows) {
-    const { name } = splitKey(row.topKey);
+  for (const row of rows) {
     lines.push(
-      `| ${name} | ${row.calls} | ${formatDuration(row.rollup.duration_ms)} | ${tokenCells(row.rollup.tokens).join(" | ")} |`
+      `| ${sessionDisplayName(row.sessionId, row.label)} | ${row.totals.count} | ${formatDuration(row.totals.duration_ms)} | ${tokenCells(row.totals.tokens).join(" | ")} |`
     );
-    mergeTotals(grandTotal, { ...row.rollup, count: row.calls });
+    grandTotal.count += row.totals.count;
+    grandTotal.duration_ms += row.totals.duration_ms;
+    grandTotal.tokens.input += row.totals.tokens.input;
+    grandTotal.tokens.output += row.totals.tokens.output;
+    grandTotal.tokens.cache_creation += row.totals.tokens.cache_creation;
+    grandTotal.tokens.cache_read += row.totals.tokens.cache_read;
   }
   lines.push(
     `| **Total** | ${grandTotal.count} | ${formatDuration(grandTotal.duration_ms)} | ${tokenCells(grandTotal.tokens).join(" | ")} |`
   );
 
-  for (const row of tableRows) {
-    if (row.subtree.size === 0) continue;
-    const { name } = splitKey(row.topKey);
-    lines.push("", `### ${name}`, "");
-    lines.push("| Agent | Calls | Duration | Input | Output | Cache Create | Cache Read |");
-    lines.push("|---|---|---|---|---|---|---|");
-    const subRows = [...row.subtree.entries()].sort((a, b) => b[1].count - a[1].count);
+  for (const row of rows) {
+    lines.push("", `### ${sessionDisplayName(row.sessionId, row.label)}`, "");
+    lines.push("| Type | Name | Calls | Duration | Input | Output | Cache Create | Cache Read |");
+    lines.push("|---|---|---|---|---|---|---|---|");
+    const subRows = [...row.byName.entries()].sort((a, b) => b[1].count - a[1].count);
     for (const [childKey, totals] of subRows) {
-      const { name: childName } = splitKey(childKey);
+      const { type, name } = splitKey(childKey);
       lines.push(
-        `| ${childName} | ${totals.count} | ${formatDuration(totals.duration_ms)} | ${tokenCells(totals.tokens).join(" | ")} |`
+        `| ${type} | ${name} | ${totals.count} | ${formatDuration(totals.duration_ms)} | ${tokenCells(totals.tokens).join(" | ")} |`
       );
     }
   }
@@ -199,7 +151,7 @@ async function generateReport(cwd) {
 
 Generated: ${generatedAt}
 
-${buildSkillSections(entries)}
+${buildSessionSections(entries)}
 `;
 
   fs.mkdirSync(logDir(cwd), { recursive: true });

@@ -1,6 +1,6 @@
 const { listOtherSessionStateFiles, loadState, deleteState } = require("./lib/state");
 const { appendLogEntry } = require("./lib/log");
-const { tokensForToolUse } = require("./lib/transcript");
+const { tokensForToolUse, sessionLabel } = require("./lib/transcript");
 const { readStdinJson } = require("./lib/io");
 const { ensureSettingsScaffold } = require("./lib/settings");
 const { ensureGitignoreEntries } = require("./lib/gitignore");
@@ -16,9 +16,11 @@ async function flushOrphan(sessionId, fullPath) {
     if (call.status !== "pending" || !call.cwd) continue;
     try {
       const tokens = await tokensForToolUse(call.transcript_path, toolUseId);
+      const sessionName = await sessionLabel(call.transcript_path);
       appendLogEntry(call.cwd, {
         time: new Date().toISOString(),
         session_id: sessionId,
+        session_label: sessionName,
         type: call.type,
         name: call.name,
         parent: call.parent,
