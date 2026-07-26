@@ -22,11 +22,14 @@ file first and no-ops immediately if it's missing or `enabled` isn't
 overhead when tracking is off. The scaffold step never overwrites an
 existing file, so flipping it back off (or deleting it) sticks.
 
-The same `SessionStart` hook also idempotently adds `docs/usage-logs/` and
-`docs/tickets/` to the project's `.gitignore` (only inside a git repo,
-only if missing, under a `# claude-ecosystem plugin` section) — so
-tracking output and `to-tickets` output don't get committed by accident,
-without you having to remember to do it yourself.
+The same `SessionStart` hook also idempotently adds `docs/usage-logs/`,
+`docs/tickets/`, and `.claude/claude-ecosystem-settings.json` itself to
+the project's `.gitignore` (only inside a git repo, only if missing,
+under a `# claude-ecosystem plugin` section) — so tracking output,
+`to-tickets` output, and your local on/off preference all stay out of
+version control without you having to remember to do it yourself. The
+settings file is per-machine, not shared team config: your teammates get
+their own scaffolded copy, defaulted off.
 
 ## What gets recorded, and where
 

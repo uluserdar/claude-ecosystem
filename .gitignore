@@ -8,3 +8,6 @@ docs/usage-logs/
 
 # to-tickets output
 docs/tickets/
+
+# per-machine plugin settings (local-only, see docs/plugin-usage.md)
+.claude/claude-ecosystem-settings.json

@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const SECTION_HEADER = "# claude-ecosystem plugin";
-const MANAGED_ENTRIES = ["docs/usage-logs/", "docs/tickets/"];
+const MANAGED_ENTRIES = ["docs/usage-logs/", "docs/tickets/", ".claude/claude-ecosystem-settings.json"];
 
 function isGitRepo(cwd) {
   return fs.existsSync(path.join(cwd, ".git"));
