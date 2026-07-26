@@ -32,10 +32,20 @@ function deleteState(sessionId) {
 // Captures the current top-of-stack as this call's parent at dispatch time,
 // then pushes the call. This is what keeps parent attribution correct even
 // though background agents complete asynchronously, out of stack order.
+//
+// A Skill's own tool_use completes almost instantly (it just loads
+// instructions into context) — the Agent calls it describes are issued as
+// separate, later tool calls, by which point the Skill has already been
+// popped off `stack`. So for an Agent starting with an empty stack, fall
+// back to `state.currentSkill`: the last Skill that started in this session.
+// Best-effort heuristic, not a guarantee — if a skill dispatches no agents
+// and the user later invokes an unrelated Agent with no skill involved, it
+// will be misattributed to that stale skill. `deleteState` at session end
+// keeps this from leaking across sessions.
 function pushCall(sessionId, { type, name, toolUseId, cwd, transcriptPath, startTimeMs }) {
   const state = loadState(sessionId);
   const top = state.stack[state.stack.length - 1] || null;
-  const parent = top ? { type: top.type, name: top.name } : null;
+  const parent = top ? { type: top.type, name: top.name } : (type === "agent" ? state.currentSkill || null : null);
   state.stack.push({ type, name, toolUseId });
   state.calls[toolUseId] = {
     type,
@@ -46,6 +56,7 @@ function pushCall(sessionId, { type, name, toolUseId, cwd, transcriptPath, start
     start_time_ms: startTimeMs,
     status: "pending",
   };
+  if (type === "skill") state.currentSkill = { type, name };
   saveState(sessionId, state);
   return state.calls[toolUseId];
 }
