@@ -116,6 +116,36 @@ async function lastCompletedToolUseId(transcriptPath, candidateIds) {
   return lastMatch;
 }
 
+// Which model actually produced the conversation's turns — the LAST assistant
+// turn's model field, since that reflects the currently-active model (a
+// session can switch models mid-conversation, e.g. via /model). Returns null
+// if the transcript has no assistant turns yet or is unreadable.
+async function lastSeenModel(transcriptPath) {
+  if (!transcriptPath) return null;
+  let stream;
+  try {
+    stream = fs.createReadStream(transcriptPath, { encoding: "utf8" });
+  } catch {
+    return null;
+  }
+
+  let last = null;
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+  for await (const line of rl) {
+    if (!line.trim()) continue;
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (entry?.type !== "assistant") continue;
+    const model = entry.message?.model;
+    if (model) last = model;
+  }
+  return last;
+}
+
 // Best-effort human-readable label for a session, read from its first user
 // message: the slash-command name if this was a command invocation,
 // otherwise the message text truncated. Falls back to null (caller uses the
@@ -156,4 +186,11 @@ async function sessionLabel(transcriptPath) {
   return null;
 }
 
-module.exports = { tokensForToolUse, wholeTranscriptTokens, lastCompletedToolUseId, sessionLabel, EMPTY_TOKENS };
+module.exports = {
+  tokensForToolUse,
+  wholeTranscriptTokens,
+  lastCompletedToolUseId,
+  lastSeenModel,
+  sessionLabel,
+  EMPTY_TOKENS,
+};

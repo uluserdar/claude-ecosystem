@@ -1,7 +1,7 @@
 const { isTrackingEnabled } = require("./lib/settings");
 const { loadState, deleteState } = require("./lib/state");
 const { appendLogEntry } = require("./lib/log");
-const { tokensForToolUse, wholeTranscriptTokens, sessionLabel } = require("./lib/transcript");
+const { tokensForToolUse, wholeTranscriptTokens, lastSeenModel, sessionLabel } = require("./lib/transcript");
 const { generateReport } = require("./lib/report");
 const { readStdinJson } = require("./lib/io");
 const { logHookError } = require("./lib/debug-log");
@@ -24,6 +24,7 @@ async function main() {
         session_label: sessionName,
         type: call.type,
         name: call.name,
+        model: call.model || null,
         parent: call.parent,
         duration_ms: Date.now() - call.start_time_ms,
         tokens,
@@ -40,6 +41,7 @@ async function main() {
     try {
       const tokens = await wholeTranscriptTokens(transcriptPath);
       const sessionName = await sessionLabel(transcriptPath);
+      const model = await lastSeenModel(transcriptPath);
       const durationMs = sessionStartTimeMs ? Date.now() - sessionStartTimeMs : 0;
       appendLogEntry(cwd, {
         time: new Date().toISOString(),
@@ -47,6 +49,7 @@ async function main() {
         session_label: sessionName,
         type: "session",
         name: sessionName || "conversation",
+        model,
         parent: null,
         duration_ms: durationMs,
         tokens,

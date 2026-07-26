@@ -16,6 +16,7 @@ async function main() {
   pushCall(sessionId, {
     type: toolName === "Skill" ? "skill" : "agent",
     name,
+    model: payload.tool_input?.model || null,
     toolUseId,
     cwd,
     transcriptPath,

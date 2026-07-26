@@ -42,7 +42,7 @@ function deleteState(sessionId) {
 // and the user later invokes an unrelated Agent with no skill involved, it
 // will be misattributed to that stale skill. `deleteState` at session end
 // keeps this from leaking across sessions.
-function pushCall(sessionId, { type, name, toolUseId, cwd, transcriptPath, startTimeMs }) {
+function pushCall(sessionId, { type, name, model, toolUseId, cwd, transcriptPath, startTimeMs }) {
   const state = loadState(sessionId);
   const top = state.stack[state.stack.length - 1] || null;
   const parent = top ? { type: top.type, name: top.name } : (type === "agent" ? state.currentSkill || null : null);
@@ -50,6 +50,7 @@ function pushCall(sessionId, { type, name, toolUseId, cwd, transcriptPath, start
   state.calls[toolUseId] = {
     type,
     name,
+    model: model || null,
     parent,
     cwd,
     transcript_path: transcriptPath,

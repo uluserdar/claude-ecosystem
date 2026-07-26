@@ -8,7 +8,13 @@ function key(type, name) {
 }
 
 function emptyTotals() {
-  return { count: 0, duration_ms: 0, tokens: { input: 0, output: 0, cache_creation: 0, cache_read: 0 }, lastTime: null };
+  return {
+    count: 0,
+    duration_ms: 0,
+    tokens: { input: 0, output: 0, cache_creation: 0, cache_read: 0 },
+    lastTime: null,
+    models: new Set(),
+  };
 }
 
 function addTotals(totals, entry) {
@@ -20,10 +26,16 @@ function addTotals(totals, entry) {
   totals.tokens.cache_creation += t.cache_creation || 0;
   totals.tokens.cache_read += t.cache_read || 0;
   if (entry.time && (!totals.lastTime || entry.time > totals.lastTime)) totals.lastTime = entry.time;
+  if (entry.model) totals.models.add(entry.model);
 }
 
 function byRecency(a, b) {
   return (b || "").localeCompare(a || "");
+}
+
+function formatModels(models) {
+  if (!models || models.size === 0) return "—";
+  return [...models].sort().join(" / ");
 }
 
 async function readEntries(filePath) {
@@ -74,14 +86,18 @@ function sessionDisplayName(sessionId, label) {
 // fallback heuristics — which makes "sub-table total == session row" a plain
 // arithmetic identity rather than something that can drift out of sync.
 function buildSessionSections(entries) {
-  const sessions = new Map(); // session_id -> { label, totals, byName: Map(key -> totals) }
+  const sessions = new Map(); // session_id -> { label, model, totals, byName: Map(key -> totals) }
   for (const entry of entries) {
     const sessionId = entry.session_id || "unknown";
     if (!sessions.has(sessionId)) {
-      sessions.set(sessionId, { label: entry.session_label || null, totals: emptyTotals(), byName: new Map() });
+      sessions.set(sessionId, { label: entry.session_label || null, model: null, totals: emptyTotals(), byName: new Map() });
     }
     const session = sessions.get(sessionId);
     if (!session.label && entry.session_label) session.label = entry.session_label;
+    // The session's own "Model" column reflects the main conversation's model
+    // (the `type: "session"` entry), not whatever its dispatched agents used —
+    // those are broken out per-row in the sub-table below instead.
+    if (entry.type === "session" && entry.model) session.model = entry.model;
     addTotals(session.totals, entry);
     const k = key(entry.type, entry.name);
     if (!session.byName.has(k)) session.byName.set(k, emptyTotals());
@@ -98,12 +114,12 @@ function buildSessionSections(entries) {
     return lines.join("\n");
   }
 
-  lines.push("| Session | Calls | Total Duration | Input | Output | Cache Create | Cache Read |");
-  lines.push("|---|---|---|---|---|---|---|");
+  lines.push("| Session | Model | Calls | Total Duration | Input | Output | Cache Create | Cache Read |");
+  lines.push("|---|---|---|---|---|---|---|---|");
   const grandTotal = emptyTotals();
   for (const row of rows) {
     lines.push(
-      `| ${sessionDisplayName(row.sessionId, row.label)} | ${row.totals.count} | ${formatDuration(row.totals.duration_ms)} | ${tokenCells(row.totals.tokens).join(" | ")} |`
+      `| ${sessionDisplayName(row.sessionId, row.label)} | ${row.model || "—"} | ${row.totals.count} | ${formatDuration(row.totals.duration_ms)} | ${tokenCells(row.totals.tokens).join(" | ")} |`
     );
     grandTotal.count += row.totals.count;
     grandTotal.duration_ms += row.totals.duration_ms;
@@ -113,18 +129,18 @@ function buildSessionSections(entries) {
     grandTotal.tokens.cache_read += row.totals.tokens.cache_read;
   }
   lines.push(
-    `| **Total** | ${grandTotal.count} | ${formatDuration(grandTotal.duration_ms)} | ${tokenCells(grandTotal.tokens).join(" | ")} |`
+    `| **Total** | — | ${grandTotal.count} | ${formatDuration(grandTotal.duration_ms)} | ${tokenCells(grandTotal.tokens).join(" | ")} |`
   );
 
   for (const row of rows) {
     lines.push("", `### ${sessionDisplayName(row.sessionId, row.label)}`, "");
-    lines.push("| Type | Name | Calls | Duration | Input | Output | Cache Create | Cache Read |");
-    lines.push("|---|---|---|---|---|---|---|---|");
+    lines.push("| Type | Name | Model | Calls | Duration | Input | Output | Cache Create | Cache Read |");
+    lines.push("|---|---|---|---|---|---|---|---|---|");
     const subRows = [...row.byName.entries()].sort((a, b) => byRecency(a[1].lastTime, b[1].lastTime));
     for (const [childKey, totals] of subRows) {
       const { type, name } = splitKey(childKey);
       lines.push(
-        `| ${type} | ${name} | ${totals.count} | ${formatDuration(totals.duration_ms)} | ${tokenCells(totals.tokens).join(" | ")} |`
+        `| ${type} | ${name} | ${formatModels(totals.models)} | ${totals.count} | ${formatDuration(totals.duration_ms)} | ${tokenCells(totals.tokens).join(" | ")} |`
       );
     }
   }

@@ -55,6 +55,7 @@ async function main() {
     session_label: sessionName,
     type: call.type,
     name: call.name,
+    model: call.model || null,
     parent: call.parent,
     duration_ms: Date.now() - call.start_time_ms,
     tokens,
