@@ -2,6 +2,8 @@ const { listOtherSessionStateFiles, loadState, deleteState } = require("./lib/st
 const { appendLogEntry } = require("./lib/log");
 const { tokensForToolUse } = require("./lib/transcript");
 const { readStdinJson } = require("./lib/io");
+const { ensureSettingsScaffold } = require("./lib/settings");
+const { ensureGitignoreEntries } = require("./lib/gitignore");
 
 // Recovers state files orphaned by a session that never reached SessionEnd
 // (crash, force-quit). Any call still marked pending is flushed to that
@@ -39,6 +41,18 @@ async function main() {
   const orphans = listOtherSessionStateFiles(currentSessionId);
   for (const { sessionId, fullPath } of orphans) {
     await flushOrphan(sessionId, fullPath);
+  }
+
+  if (payload.cwd) {
+    try {
+      // Scaffolds the settings file OFF (opt-in stays opt-in) and makes
+      // sure this project's own .gitignore won't accidentally track
+      // generated usage-tracking/tickets output.
+      ensureSettingsScaffold(payload.cwd);
+      ensureGitignoreEntries(payload.cwd);
+    } catch {
+      // best effort — never block session start on this
+    }
   }
 }
 

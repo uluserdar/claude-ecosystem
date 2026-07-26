@@ -197,13 +197,16 @@ Like `handoff` and `implement`, it does not auto-trigger from conversation
 
 ## Usage tracking
 
-Off by default. When turned on for a project (via
-`.claude/claude-ecosystem-settings.json`), Node.js hooks in `hooks/`
-record every skill/agent call — including which one triggered which — to
-`docs/usage-logs/` in that project, gitignored so nothing leaves your
-machine. See [docs/plugin-usage.md](docs/plugin-usage.md) for how to
-enable it, the exact log schema, and how the hooks handle background
-agents and crashed sessions.
+Off by default. On session start, `.claude/claude-ecosystem-settings.json`
+is auto-scaffolded (tracking `false`) if missing, and `docs/usage-logs/` +
+`docs/tickets/` are added to the project's `.gitignore` if it's a git
+repo — so the on-switch and the gitignore hygiene are one less manual
+step. Flip `usageTracking.enabled` to `true` to turn tracking on for that
+project. Once on, Node.js hooks in `hooks/` record every skill/agent
+call — including which one triggered which — to `docs/usage-logs/`,
+gitignored so nothing leaves your machine. See
+[docs/plugin-usage.md](docs/plugin-usage.md) for the exact log schema and
+how the hooks handle background agents and crashed sessions.
 
 ## Agents
 

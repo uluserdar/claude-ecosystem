@@ -6,17 +6,27 @@ nothing is recorded unless you turn it on for a given project.
 
 ## Enabling it
 
-Create (or edit) `.claude/claude-ecosystem-settings.json` in the project:
+The first time a session starts in a project with this plugin active,
+`SessionStart` scaffolds `.claude/claude-ecosystem-settings.json` if it
+doesn't exist yet — always with tracking **off**:
 
 ```json
 {
-  "usageTracking": { "enabled": true }
+  "usageTracking": { "enabled": false }
 }
 ```
 
-Every tracking hook checks this file first and no-ops immediately if it's
-missing or `enabled` isn't `true` — this is the majority path for most
-projects, so the hooks add no overhead when tracking is off.
+To turn tracking on, flip that to `true`. Every tracking hook checks this
+file first and no-ops immediately if it's missing or `enabled` isn't
+`true` — this is the majority path for most projects, so the hooks add no
+overhead when tracking is off. The scaffold step never overwrites an
+existing file, so flipping it back off (or deleting it) sticks.
+
+The same `SessionStart` hook also idempotently adds `docs/usage-logs/` and
+`docs/tickets/` to the project's `.gitignore` (only inside a git repo,
+only if missing, under a `# claude-ecosystem plugin` section) — so
+tracking output and `to-tickets` output don't get committed by accident,
+without you having to remember to do it yourself.
 
 ## What gets recorded, and where
 
