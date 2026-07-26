@@ -4,6 +4,7 @@ const { appendLogEntry } = require("./lib/log");
 const { tokensForToolUse } = require("./lib/transcript");
 const { generateReport } = require("./lib/report");
 const { readStdinJson } = require("./lib/io");
+const { logHookError } = require("./lib/debug-log");
 
 async function main() {
   const payload = await readStdinJson();
@@ -25,8 +26,9 @@ async function main() {
         tokens,
         status: "interrupted",
       });
-    } catch {
+    } catch (err) {
       // best effort
+      logHookError("session-end:flush", err);
     }
   }
   deleteState(sessionId);
@@ -34,10 +36,11 @@ async function main() {
   if (cwd && isTrackingEnabled(cwd)) {
     try {
       await generateReport(cwd);
-    } catch {
+    } catch (err) {
       // best effort — don't block session shutdown on report generation
+      logHookError("session-end:report", err);
     }
   }
 }
 
-main().catch(() => {});
+main().catch((err) => logHookError("session-end", err));

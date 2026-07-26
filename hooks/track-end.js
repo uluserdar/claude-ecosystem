@@ -3,6 +3,7 @@ const { popStack, takeCall } = require("./lib/state");
 const { appendLogEntry } = require("./lib/log");
 const { tokensForToolUse } = require("./lib/transcript");
 const { readStdinJson, TRACKED_TOOLS } = require("./lib/io");
+const { logHookError } = require("./lib/debug-log");
 
 // PostToolUse fires at dispatch return. For Skill (synchronous) that's also
 // completion, so we log here. For Agent (usually backgrounded) this only
@@ -34,4 +35,4 @@ async function main() {
   });
 }
 
-main().catch(() => {});
+main().catch((err) => logHookError("track-end", err));

@@ -4,6 +4,7 @@ const { tokensForToolUse } = require("./lib/transcript");
 const { readStdinJson } = require("./lib/io");
 const { ensureSettingsScaffold } = require("./lib/settings");
 const { ensureGitignoreEntries } = require("./lib/gitignore");
+const { logHookError } = require("./lib/debug-log");
 
 // Recovers state files orphaned by a session that never reached SessionEnd
 // (crash, force-quit). Any call still marked pending is flushed to that
@@ -25,8 +26,9 @@ async function flushOrphan(sessionId, fullPath) {
         tokens,
         status: "interrupted",
       });
-    } catch {
+    } catch (err) {
       // best effort; skip this call rather than aborting the whole cleanup
+      logHookError("session-start:flushOrphan", err);
     }
   }
   deleteState(sessionId);
@@ -50,10 +52,11 @@ async function main() {
       // generated usage-tracking/tickets output.
       ensureSettingsScaffold(payload.cwd);
       ensureGitignoreEntries(payload.cwd);
-    } catch {
+    } catch (err) {
       // best effort — never block session start on this
+      logHookError("session-start:scaffold", err);
     }
   }
 }
 
-main().catch(() => {});
+main().catch((err) => logHookError("session-start", err));

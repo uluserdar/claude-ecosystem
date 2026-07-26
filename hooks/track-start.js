@@ -1,6 +1,7 @@
 const { isTrackingEnabled } = require("./lib/settings");
 const { pushCall } = require("./lib/state");
 const { readStdinJson, TRACKED_TOOLS, skillOrAgentName } = require("./lib/io");
+const { logHookError } = require("./lib/debug-log");
 
 async function main() {
   const payload = await readStdinJson();
@@ -22,4 +23,4 @@ async function main() {
   });
 }
 
-main().catch(() => {});
+main().catch((err) => logHookError("track-start", err));

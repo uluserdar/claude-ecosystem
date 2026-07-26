@@ -3,6 +3,7 @@ const { listOpenCalls, takeCall, popStack } = require("./lib/state");
 const { appendLogEntry } = require("./lib/log");
 const { tokensForToolUse } = require("./lib/transcript");
 const { readStdinJson } = require("./lib/io");
+const { logHookError } = require("./lib/debug-log");
 
 // SubagentStop payloads aren't guaranteed to carry the originating
 // PreToolUse tool_use_id under a single stable field name, so we try the
@@ -46,4 +47,4 @@ async function main() {
   });
 }
 
-main().catch(() => {});
+main().catch((err) => logHookError("track-subagent-stop", err));
