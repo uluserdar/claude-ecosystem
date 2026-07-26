@@ -32,13 +32,14 @@ async function tokensForToolUse(transcriptPath, toolUseId) {
     const hasToolUse = content.some((block) => block?.type === "tool_use" && block?.id === toolUseId);
     if (!hasToolUse) continue;
     const usage = message.usage || {};
+    const sharedBy = content.filter((block) => block?.type === "tool_use").length || 1;
     rl.close();
     stream.close?.();
     return {
-      input: usage.input_tokens || 0,
-      output: usage.output_tokens || 0,
-      cache_creation: usage.cache_creation_input_tokens || 0,
-      cache_read: usage.cache_read_input_tokens || 0,
+      input: Math.round((usage.input_tokens || 0) / sharedBy),
+      output: Math.round((usage.output_tokens || 0) / sharedBy),
+      cache_creation: Math.round((usage.cache_creation_input_tokens || 0) / sharedBy),
+      cache_read: Math.round((usage.cache_read_input_tokens || 0) / sharedBy),
     };
   }
   return { ...EMPTY_TOKENS };
