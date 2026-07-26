@@ -1,8 +1,8 @@
-const { listOtherSessionStateFiles, loadState, deleteState } = require("./lib/state");
+const { listOtherSessionStateFiles, loadState, saveState, deleteState } = require("./lib/state");
 const { appendLogEntry } = require("./lib/log");
 const { tokensForToolUse, sessionLabel } = require("./lib/transcript");
 const { readStdinJson } = require("./lib/io");
-const { ensureSettingsScaffold } = require("./lib/settings");
+const { isTrackingEnabled, ensureSettingsScaffold } = require("./lib/settings");
 const { ensureGitignoreEntries } = require("./lib/gitignore");
 const { logHookError } = require("./lib/debug-log");
 
@@ -13,7 +13,7 @@ const { logHookError } = require("./lib/debug-log");
 async function flushOrphan(sessionId, fullPath) {
   const state = loadState(sessionId);
   for (const [toolUseId, call] of Object.entries(state.calls || {})) {
-    if (call.status !== "pending" || !call.cwd) continue;
+    if (call.status !== "pending" || !call.cwd || call.type === "skill") continue;
     try {
       const tokens = await tokensForToolUse(call.transcript_path, toolUseId);
       const sessionName = await sessionLabel(call.transcript_path);
@@ -45,6 +45,12 @@ async function main() {
   const orphans = listOtherSessionStateFiles(currentSessionId);
   for (const { sessionId, fullPath } of orphans) {
     await flushOrphan(sessionId, fullPath);
+  }
+
+  if (payload.cwd && isTrackingEnabled(payload.cwd)) {
+    const state = loadState(currentSessionId);
+    state.session_start_time_ms = Date.now();
+    saveState(currentSessionId, state);
   }
 
   if (payload.cwd) {

@@ -1,41 +1,28 @@
 const { isTrackingEnabled } = require("./lib/settings");
 const { popStack, takeCall } = require("./lib/state");
-const { appendLogEntry } = require("./lib/log");
-const { tokensForToolUse, sessionLabel } = require("./lib/transcript");
 const { readStdinJson, TRACKED_TOOLS } = require("./lib/io");
 const { logHookError } = require("./lib/debug-log");
 
-// PostToolUse fires at dispatch return. For Skill (synchronous) that's also
-// completion, so we log here. For Agent (usually backgrounded) this only
-// unwinds the call stack — real completion is logged by SubagentStop.
+// PostToolUse fires at dispatch return, which for a Skill is basically
+// instantaneous (it just loads instructions into context). Skill tool_use
+// tracking turned out to be unreliable besides (the same slash-command
+// invocation of the same skill produced one in some sessions and none in
+// others), and its tokens would double-count against the whole-session
+// entry logged in session-end.js (Skill calls run inline in the main
+// transcript, unlike Agent calls which run in a fully separate one). So
+// this hook now only unwinds the call stack for both Skill and Agent —
+// completion is logged for Agent by SubagentStop, and for Skill nowhere
+// (superseded by the session-level entry).
 async function main() {
   const payload = await readStdinJson();
-  const { tool_name: toolName, tool_use_id: toolUseId, session_id: sessionId, cwd, transcript_path: transcriptPath } = payload;
+  const { tool_name: toolName, tool_use_id: toolUseId, session_id: sessionId, cwd } = payload;
 
   if (!TRACKED_TOOLS.has(toolName) || !toolUseId || !sessionId || !cwd) return;
   if (!isTrackingEnabled(cwd)) return;
 
   popStack(sessionId, toolUseId);
 
-  if (toolName !== "Skill") return;
-
-  const call = takeCall(sessionId, toolUseId);
-  if (!call) return;
-
-  const resolvedTranscriptPath = transcriptPath || call.transcript_path;
-  const tokens = await tokensForToolUse(resolvedTranscriptPath, toolUseId);
-  const sessionName = await sessionLabel(resolvedTranscriptPath);
-  appendLogEntry(cwd, {
-    time: new Date().toISOString(),
-    session_id: sessionId,
-    session_label: sessionName,
-    type: call.type,
-    name: call.name,
-    parent: call.parent,
-    duration_ms: Date.now() - call.start_time_ms,
-    tokens,
-    status: "completed",
-  });
+  if (toolName === "Skill") takeCall(sessionId, toolUseId);
 }
 
 main().catch((err) => logHookError("track-end", err));

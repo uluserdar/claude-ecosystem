@@ -44,6 +44,40 @@ async function tokensForToolUse(transcriptPath, toolUseId) {
   return { ...EMPTY_TOKENS };
 }
 
+// Sums usage across every assistant turn in the transcript — the whole main
+// conversation's own spend, independent of whether any Skill/Agent tool_use
+// ever fired. Distinct from tokensForToolUse, which attributes a single
+// turn's usage to one specific tool call.
+async function wholeTranscriptTokens(transcriptPath) {
+  if (!transcriptPath) return { ...EMPTY_TOKENS };
+  let stream;
+  try {
+    stream = fs.createReadStream(transcriptPath, { encoding: "utf8" });
+  } catch {
+    return { ...EMPTY_TOKENS };
+  }
+
+  const totals = { ...EMPTY_TOKENS };
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+  for await (const line of rl) {
+    if (!line.trim()) continue;
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (entry?.type !== "assistant") continue;
+    const usage = entry.message?.usage;
+    if (!usage) continue;
+    totals.input += usage.input_tokens || 0;
+    totals.output += usage.output_tokens || 0;
+    totals.cache_creation += usage.cache_creation_input_tokens || 0;
+    totals.cache_read += usage.cache_read_input_tokens || 0;
+  }
+  return totals;
+}
+
 // Best-effort human-readable label for a session, read from its first user
 // message: the slash-command name if this was a command invocation,
 // otherwise the message text truncated. Falls back to null (caller uses the
@@ -84,4 +118,4 @@ async function sessionLabel(transcriptPath) {
   return null;
 }
 
-module.exports = { tokensForToolUse, sessionLabel, EMPTY_TOKENS };
+module.exports = { tokensForToolUse, wholeTranscriptTokens, sessionLabel, EMPTY_TOKENS };
