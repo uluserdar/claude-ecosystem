@@ -107,6 +107,12 @@ After confirmation, apply the following internal analysis process. This process 
    - `ask-me-outside-eye`
    - `ask-me-practitioner`
 
+   For each of the 5, resolve its model the same way: read `agentModel["<role-name>"]`
+   (e.g. `agentModel["ask-me-devils-advocate"]`) from
+   `.claude/claude-ecosystem-settings.json`, falling back to `agentModel.default`; pass
+   whichever resolves as that call's `model` parameter, or omit `model` entirely if
+   neither is set.
+
    Each role's instructions live in its own agent definition (`agents/ask-me-*.md`) — the prompt for each call only needs to carry the original question and the full merged answer from step 5, not the role description itself. Each subagent works independently and does not see the other four's critiques (no cross-review, no separate "chairman" agent). Once all 5 return, the main agent reads all 5 critiques and revises the final answer where warranted, using its own judgment to weigh conflicting critiques. This is a single pass — the revised answer is not sent back through the panel again. The 5 critiques themselves are internal and are never shown to the user in raw form; if a critique meaningfully changed the answer, at most a short one- or two-sentence note may be woven into the relevant section of the final answer.
 
 ## Final answer

@@ -86,7 +86,10 @@ or a `docs/release-plans/references/.../*.md` step doc) or a set of tickets
     the user which docs look stale and why, then invoke the `analyzer`
     subagent directly via the `Agent` tool — not through the
     `project-analyze` skill wrapper — passing that scoped category list, the
-    same way `plan-writer` does when it detects a gap.
+    same way `plan-writer` does when it detects a gap. Model: read
+    `agentModel["analyzer"]` from `.claude/claude-ecosystem-settings.json`,
+    falling back to `agentModel.default`; pass whichever resolves as the
+    `model` parameter, or omit `model` entirely if neither is set.
 12. Ask the user for explicit confirmation before pushing the branch.
     - If declined: stop here. Tell the user push/PR/merge is on them, and
       that re-running `/implement` later will pick up post-merge cleanup.

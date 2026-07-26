@@ -77,3 +77,37 @@ The summary report is regenerated automatically at the end of every
 session, and on demand via `/plugin-usage`. Both paths call the same
 deterministic script (`hooks/lib/report.js`) — no model/LLM involvement,
 so regenerating it costs no tokens.
+
+## Configuring which model each agent uses
+
+The same `.claude/claude-ecosystem-settings.json` file also accepts an
+optional `agentModel` key controlling which model this plugin's subagents
+run on, with per-agent overrides:
+
+```json
+{
+  "usageTracking": { "enabled": false },
+  "agentModel": {
+    "default": "sonnet",
+    "plan-writer": "opus",
+    "ask-me-devils-advocate": "haiku"
+  }
+}
+```
+
+- Entirely optional — if `agentModel` is absent, or a given agent has no
+  matching entry and no `default` is set either, no `model` parameter is
+  passed at all: the subagent uses its own `.md` frontmatter (or inherits),
+  exactly like before this feature existed.
+- Keys must match a subagent's own `name:` frontmatter field exactly —
+  `analyzer`, `create-skill`, `create-analyze`, `plan-writer`, `spec-writer`,
+  `ticket-writer`, `skill-writer`, `ask-me-devils-advocate`,
+  `ask-me-first-principles-thinker`, `ask-me-opportunity-hunter`,
+  `ask-me-outside-eye`, `ask-me-practitioner`.
+- Resolution order for a given agent: its own key → `agentModel.default` →
+  no override. So setting just `"plan-writer": "opus"` only affects
+  `plan-writer`; every other agent still falls through to `default` (or to
+  no override, if `default` isn't set either).
+- Unlike usage tracking, this isn't read by the JS hooks — the skill/agent
+  instructions that dispatch each subagent read the file themselves and
+  pass the resolved value as the `Agent` tool's `model` parameter.

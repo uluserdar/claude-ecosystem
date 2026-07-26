@@ -17,6 +17,9 @@ yourself.
    - Everything relevant discussed in this conversation so far (what the
      skill should do, or what's wrong/missing in an existing skill).
    - Any explicit skill name or file path the user referenced.
+   - Model: read `agentModel["skill-writer"]` from `.claude/claude-ecosystem-settings.json`,
+     falling back to `agentModel.default`; pass whichever resolves as the `model`
+     parameter, or omit `model` entirely if neither is set.
 2. `skill-writer` owns duplicate-checking, create-vs-improve mode detection,
    interviewing (for new skills), diagnosis and targeted editing (for
    existing skills), and file writing end to end — do not duplicate or

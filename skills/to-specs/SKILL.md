@@ -18,6 +18,9 @@ user for spec content, and do not write any files yourself.
      it).
    - Any explicit reference the user made to a release-plan plan/phase/step
      this spec is for, if mentioned.
+   - Model: read `agentModel["spec-writer"]` from `.claude/claude-ecosystem-settings.json`,
+     falling back to `agentModel.default`; pass whichever resolves as the `model`
+     parameter, or omit `model` entirely if neither is set.
 2. `spec-writer` owns target-file detection, codebase exploration, seam
    sketching, spec synthesis, file writing, and the optional GitHub-publish
    step end to end — do not duplicate or second-guess its work.

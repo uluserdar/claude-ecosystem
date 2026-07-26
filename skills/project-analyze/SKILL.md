@@ -12,6 +12,9 @@ This skill's only job is to hand off to the `analyzer` subagent, which owns the 
 1. Invoke the `analyzer` subagent via the `Agent` tool, passing along:
    - The user's stated request, verbatim.
    - Any relevant project context already established in the conversation.
+   - Model: read `agentModel["analyzer"]` from `.claude/claude-ecosystem-settings.json`,
+     falling back to `agentModel.default`; pass whichever resolves as the `model`
+     parameter, or omit `model` entirely if neither is set.
 2. `analyzer` owns mode detection (new/empty project vs. existing project), the interview or codebase analysis, technology-skill gap detection and resolution, and delegating document generation to `create-analyze` — do not duplicate or second-guess its work.
 3. Once `analyzer` finishes, relay its summary and output paths back to the user.
 

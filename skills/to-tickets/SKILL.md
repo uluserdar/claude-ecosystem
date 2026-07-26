@@ -19,6 +19,9 @@ yourself.
      restate it).
    - Any explicit reference the user made to a spec, release-plan step, or
      existing issue this breakdown is for, if mentioned.
+   - Model: read `agentModel["ticket-writer"]` from `.claude/claude-ecosystem-settings.json`,
+     falling back to `agentModel.default`; pass whichever resolves as the `model`
+     parameter, or omit `model` entirely if neither is set.
 2. `ticket-writer` owns codebase exploration, vertical-slice breakdown,
    blocking-edge assignment, user confirmation, and publishing (as GitHub
    issues or local files) end to end — do not duplicate or second-guess its

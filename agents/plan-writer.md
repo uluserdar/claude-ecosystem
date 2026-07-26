@@ -28,7 +28,7 @@ Check whether you were invoked for a new plan or to extend an existing plan (per
      - All present → analysis is complete, proceed straight to Step 2, no action needed.
      - Some missing → note exactly which categories have missing files. Proposed action is analysis scoped to **only those affected categories**.
 2. If any gap was found, tell the user what's missing and propose the specific action (full vs. scoped-to-categories), then **ask for explicit confirmation** before doing anything — never auto-run this.
-   - If confirmed: invoke the `analyzer` subagent (via the `Agent` tool, with `run_in_background: false`) directly — not through the `project-analyze` skill wrapper, the same convention used for calling `create-skill` directly — passing the target project path and, for the scoped case, the specific list of categories to (re)generate. Wait for it to fully finish before continuing to Step 2.
+   - If confirmed: invoke the `analyzer` subagent (via the `Agent` tool, with `run_in_background: false`) directly — not through the `project-analyze` skill wrapper, the same convention used for calling `create-skill` directly — passing the target project path and, for the scoped case, the specific list of categories to (re)generate. Wait for it to fully finish before continuing to Step 2. Model: read `agentModel["analyzer"]` from `.claude/claude-ecosystem-settings.json`, falling back to `agentModel.default`; pass whichever resolves as the `model` parameter, or omit `model` entirely if neither is set.
    - If declined: proceed to Step 2 without running analysis, and note in the Step 8 report that this plan was created without full project-analysis context.
 
 ## Step 2 — Interview (grilling style)
@@ -58,7 +58,7 @@ For each specialized-skill need detected in Step 4, in order, one at a time — 
    - the target project's own `.claude/skills/<name>/SKILL.md`, and
    - the user's global personal skill collection at `~/.claude/skills/`.
 2. If an equivalent already exists, skip creation — tell the user it will be reused for this step.
-3. If no equivalent exists, invoke the `create-skill` subagent (via the `Agent` tool, with `run_in_background: false`) for this one specialized need, and wait for it to fully finish (interview + file generation) before evaluating the next detected need. Do not batch or parallelize these invocations.
+3. If no equivalent exists, invoke the `create-skill` subagent (via the `Agent` tool, with `run_in_background: false`) for this one specialized need, and wait for it to fully finish (interview + file generation) before evaluating the next detected need. Do not batch or parallelize these invocations. Model: read `agentModel["create-skill"]` from `.claude/claude-ecosystem-settings.json`, falling back to `agentModel.default`; pass whichever resolves as the `model` parameter, or omit `model` entirely if neither is set.
 
 ## Step 6 — Confirm final breakdown
 
