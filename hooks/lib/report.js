@@ -8,7 +8,7 @@ function key(type, name) {
 }
 
 function emptyTotals() {
-  return { count: 0, duration_ms: 0, tokens: { input: 0, output: 0, cache_creation: 0, cache_read: 0 } };
+  return { count: 0, duration_ms: 0, tokens: { input: 0, output: 0, cache_creation: 0, cache_read: 0 }, lastTime: null };
 }
 
 function addTotals(totals, entry) {
@@ -19,6 +19,11 @@ function addTotals(totals, entry) {
   totals.tokens.output += t.output || 0;
   totals.tokens.cache_creation += t.cache_creation || 0;
   totals.tokens.cache_read += t.cache_read || 0;
+  if (entry.time && (!totals.lastTime || entry.time > totals.lastTime)) totals.lastTime = entry.time;
+}
+
+function byRecency(a, b) {
+  return (b || "").localeCompare(a || "");
 }
 
 async function readEntries(filePath) {
@@ -85,7 +90,7 @@ function buildSessionSections(entries) {
 
   const rows = [...sessions.entries()]
     .map(([sessionId, s]) => ({ sessionId, ...s }))
-    .sort((a, b) => b.totals.count - a.totals.count);
+    .sort((a, b) => byRecency(a.totals.lastTime, b.totals.lastTime));
 
   const lines = ["## Sessions", ""];
   if (rows.length === 0) {
@@ -115,7 +120,7 @@ function buildSessionSections(entries) {
     lines.push("", `### ${sessionDisplayName(row.sessionId, row.label)}`, "");
     lines.push("| Type | Name | Calls | Duration | Input | Output | Cache Create | Cache Read |");
     lines.push("|---|---|---|---|---|---|---|---|");
-    const subRows = [...row.byName.entries()].sort((a, b) => b[1].count - a[1].count);
+    const subRows = [...row.byName.entries()].sort((a, b) => byRecency(a[1].lastTime, b[1].lastTime));
     for (const [childKey, totals] of subRows) {
       const { type, name } = splitKey(childKey);
       lines.push(
