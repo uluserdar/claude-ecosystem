@@ -45,6 +45,15 @@ async function tokensForToolUse(transcriptPath, toolUseId) {
   return { ...EMPTY_TOKENS };
 }
 
+// Sums usage across every assistant turn in a subagent's OWN transcript
+// (SubagentStop payloads carry `agent_transcript_path`, distinct from the
+// parent's `transcript_path`). This is the subagent's exclusive, complete
+// usage — no averaging/estimation needed, unlike tokensForToolUse which has
+// to approximate from the parent's shared dispatch turn.
+async function tokensForAgentTranscript(agentTranscriptPath) {
+  return wholeTranscriptTokens(agentTranscriptPath);
+}
+
 // Sums usage across every assistant turn in the transcript — the whole main
 // conversation's own spend, independent of whether any Skill/Agent tool_use
 // ever fired. Distinct from tokensForToolUse, which attributes a single
@@ -188,6 +197,7 @@ async function sessionLabel(transcriptPath) {
 
 module.exports = {
   tokensForToolUse,
+  tokensForAgentTranscript,
   wholeTranscriptTokens,
   lastCompletedToolUseId,
   lastSeenModel,

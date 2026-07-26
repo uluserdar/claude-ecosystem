@@ -1,7 +1,12 @@
 const { isTrackingEnabled } = require("./lib/settings");
 const { listOpenCalls, takeCall, popStack } = require("./lib/state");
 const { appendLogEntry } = require("./lib/log");
-const { tokensForToolUse, lastCompletedToolUseId, sessionLabel } = require("./lib/transcript");
+const {
+  tokensForToolUse,
+  tokensForAgentTranscript,
+  lastCompletedToolUseId,
+  sessionLabel,
+} = require("./lib/transcript");
 const { readStdinJson } = require("./lib/io");
 const { logHookError } = require("./lib/debug-log");
 
@@ -47,7 +52,13 @@ async function main() {
   if (!call) return;
 
   const resolvedTranscriptPath = transcriptPath || call.transcript_path;
-  const tokens = await tokensForToolUse(resolvedTranscriptPath, toolUseId);
+  // Newer CLI versions attach the subagent's OWN transcript on SubagentStop,
+  // separate from the parent's transcript_path — that's exact, un-shared
+  // usage, so prefer it over the parent-turn-averaged fallback whenever
+  // present (older CLI versions or non-Agent tools won't have it).
+  const tokens = payload.agent_transcript_path
+    ? await tokensForAgentTranscript(payload.agent_transcript_path)
+    : await tokensForToolUse(resolvedTranscriptPath, toolUseId);
   const sessionName = await sessionLabel(resolvedTranscriptPath);
   appendLogEntry(call.cwd || cwd, {
     time: new Date().toISOString(),
