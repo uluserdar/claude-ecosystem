@@ -2,3 +2,6 @@
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Plugin usage tracking (local-only, see docs/plugin-usage.md)
+docs/usage-logs/

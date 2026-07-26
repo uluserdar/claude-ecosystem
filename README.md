@@ -4,13 +4,13 @@ A personal, growing collection of [Claude Code](https://code.claude.com) agents 
 
 ## What's in here right now
 
-Eight skills — [`ask-me`, `create-plan`, `project-analyze`, `to-specs`,
-`to-tickets`, `implement`, `manage-skills`, and `handoff`](#skills), see
-below — plus 12 subagents: 5 that back ask-me's optional critique-panel
-step, 2 that back create-plan, 2 that back project-analyze, 1 that backs
-to-specs, 1 that backs to-tickets, and 1 that backs manage-skills (see
-[Agents](#agents)). `handoff`, like `implement`, is self-contained and
-doesn't add a subagent of its own.
+Nine skills — [`ask-me`, `create-plan`, `project-analyze`, `to-specs`,
+`to-tickets`, `implement`, `manage-skills`, `handoff`, and
+`plugin-usage`](#skills), see below — plus 12 subagents: 5 that back
+ask-me's optional critique-panel step, 2 that back create-plan, 2 that back
+project-analyze, 1 that backs to-specs, 1 that backs to-tickets, and 1 that
+backs manage-skills (see [Agents](#agents)). `handoff`, `implement`, and
+`plugin-usage` are self-contained and don't add a subagent of their own.
 This started as a clean plugin/marketplace shell, ready for the first agent
 or skill to be added.
 
@@ -181,6 +181,30 @@ Like `implement`, it does not auto-trigger from conversation
 be run explicitly with `/handoff`. Adapted from
 [mattpocock/skills](https://github.com/mattpocock/skills/tree/main/skills/productivity/handoff).
 
+### `plugin-usage`
+
+Regenerates and shows the plugin usage report for the current project —
+which skills triggered which agents, call counts, durations, and token
+usage (input/output/cache-create/cache-read), recorded by this plugin's
+opt-in usage-tracking hooks (see [Usage tracking](#usage-tracking) below).
+It's self-contained: it only shells out to the deterministic
+`hooks/lib/report.js` script to recompute the report from the raw JSONL
+logs — it never estimates or computes the numbers itself.
+
+Like `handoff` and `implement`, it does not auto-trigger from conversation
+(`disable-model-invocation: true`) — it must be run explicitly with
+`/plugin-usage`.
+
+## Usage tracking
+
+Off by default. When turned on for a project (via
+`.claude/claude-ecosystem-settings.json`), Node.js hooks in `hooks/`
+record every skill/agent call — including which one triggered which — to
+`docs/usage-logs/` in that project, gitignored so nothing leaves your
+machine. See [docs/plugin-usage.md](docs/plugin-usage.md) for how to
+enable it, the exact log schema, and how the hooks handle background
+agents and crashed sessions.
+
 ## Agents
 
 Five subagents (`ask-me-devils-advocate`, `ask-me-first-principles-thinker`,
@@ -255,10 +279,21 @@ claude-ecosystem/
 │   │   └── SKILL.md         # implement skill definition
 │   ├── manage-skills/
 │   │   └── SKILL.md         # manage-skills skill definition
-│   └── handoff/
-│       └── SKILL.md         # handoff skill definition
+│   ├── handoff/
+│   │   └── SKILL.md         # handoff skill definition
+│   └── plugin-usage/
+│       └── SKILL.md         # plugin-usage skill definition
+├── hooks/
+│   ├── hooks.json           # registers the usage-tracking hooks below
+│   ├── track-start.js       # PreToolUse(Skill|Agent): starts tracking a call
+│   ├── track-end.js         # PostToolUse(Skill|Agent): unwinds the call stack, logs Skill completions
+│   ├── track-subagent-stop.js # SubagentStop: logs Agent completions (background-safe)
+│   ├── session-start.js     # SessionStart: recovers state orphaned by a crashed session
+│   ├── session-end.js       # SessionEnd: flushes state, regenerates the usage report
+│   └── lib/                 # shared helpers (settings, state, log, transcript, report)
 ├── docs/
-│   └── ask-me.md            # how ask-me works, in plain terms
+│   ├── ask-me.md            # how ask-me works, in plain terms
+│   └── plugin-usage.md      # how usage tracking works, in plain terms
 ├── LICENSE                  # MIT
 └── README.md
 ```
@@ -299,7 +334,7 @@ To add a new agent, drop a `.md` file in `agents/`. To add a new skill, add a
 `<skill-name>/SKILL.md` directory under `skills/`. Both are picked up
 automatically — nothing in `.claude-plugin/plugin.json` or
 `.claude-plugin/marketplace.json` needs to change for a new agent or skill
-to be discovered.
+to be discovered. `hooks/hooks.json` is discovered the same way.
 
 ## License
 
