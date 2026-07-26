@@ -1,4 +1,4 @@
-const { isTrackingEnabled } = require("./lib/settings");
+const { isTrackingEnabled, resolveAgentModel } = require("./lib/settings");
 const { pushCall } = require("./lib/state");
 const { readStdinJson, TRACKED_TOOLS, skillOrAgentName } = require("./lib/io");
 const { logHookError } = require("./lib/debug-log");
@@ -13,10 +13,18 @@ async function main() {
   const name = skillOrAgentName(payload);
   if (!name) return;
 
+  // The orchestrating skill is *supposed* to read agentModel and pass it as
+  // tool_input.model itself, but that's a prose instruction with no
+  // enforcement — if that turn skips it, fall back to resolving it here in
+  // code so the settings file is authoritative either way.
+  const model =
+    payload.tool_input?.model ||
+    (toolName === "Agent" ? resolveAgentModel(cwd, payload.tool_input?.subagent_type) : null);
+
   pushCall(sessionId, {
     type: toolName === "Skill" ? "skill" : "agent",
     name,
-    model: payload.tool_input?.model || null,
+    model,
     toolUseId,
     cwd,
     transcriptPath,

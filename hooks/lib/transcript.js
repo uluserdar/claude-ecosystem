@@ -45,13 +45,34 @@ async function tokensForToolUse(transcriptPath, toolUseId) {
   return { ...EMPTY_TOKENS };
 }
 
+const AGENT_TRANSCRIPT_RETRY_DELAYS_MS = [100, 250, 500];
+
+function isEmptyTokens(tokens) {
+  return !tokens.input && !tokens.output && !tokens.cache_creation && !tokens.cache_read;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // Sums usage across every assistant turn in a subagent's OWN transcript
 // (SubagentStop payloads carry `agent_transcript_path`, distinct from the
 // parent's `transcript_path`). This is the subagent's exclusive, complete
 // usage — no averaging/estimation needed, unlike tokensForToolUse which has
 // to approximate from the parent's shared dispatch turn.
+//
+// SubagentStop can fire before the subagent's last assistant-turn line
+// (carrying `usage`) has actually been flushed to disk — a real turn always
+// has nonzero usage, so an all-zero read is treated as "not flushed yet" and
+// retried a few times before giving up.
 async function tokensForAgentTranscript(agentTranscriptPath) {
-  return wholeTranscriptTokens(agentTranscriptPath);
+  let tokens = await wholeTranscriptTokens(agentTranscriptPath);
+  for (const ms of AGENT_TRANSCRIPT_RETRY_DELAYS_MS) {
+    if (!isEmptyTokens(tokens)) break;
+    await delay(ms);
+    tokens = await wholeTranscriptTokens(agentTranscriptPath);
+  }
+  return tokens;
 }
 
 // Sums usage across every assistant turn in the transcript — the whole main
@@ -60,30 +81,31 @@ async function tokensForAgentTranscript(agentTranscriptPath) {
 // turn's usage to one specific tool call.
 async function wholeTranscriptTokens(transcriptPath) {
   if (!transcriptPath) return { ...EMPTY_TOKENS };
-  let stream;
-  try {
-    stream = fs.createReadStream(transcriptPath, { encoding: "utf8" });
-  } catch {
-    return { ...EMPTY_TOKENS };
-  }
 
   const totals = { ...EMPTY_TOKENS };
-  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-  for await (const line of rl) {
-    if (!line.trim()) continue;
-    let entry;
-    try {
-      entry = JSON.parse(line);
-    } catch {
-      continue;
+  try {
+    const stream = fs.createReadStream(transcriptPath, { encoding: "utf8" });
+    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+    for await (const line of rl) {
+      if (!line.trim()) continue;
+      let entry;
+      try {
+        entry = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (entry?.type !== "assistant") continue;
+      const usage = entry.message?.usage;
+      if (!usage) continue;
+      totals.input += usage.input_tokens || 0;
+      totals.output += usage.output_tokens || 0;
+      totals.cache_creation += usage.cache_creation_input_tokens || 0;
+      totals.cache_read += usage.cache_read_input_tokens || 0;
     }
-    if (entry?.type !== "assistant") continue;
-    const usage = entry.message?.usage;
-    if (!usage) continue;
-    totals.input += usage.input_tokens || 0;
-    totals.output += usage.output_tokens || 0;
-    totals.cache_creation += usage.cache_creation_input_tokens || 0;
-    totals.cache_read += usage.cache_read_input_tokens || 0;
+  } catch {
+    // Missing/unreadable file (e.g. not created yet) — treat as empty so
+    // callers like tokensForAgentTranscript can retry or fall back.
+    return { ...EMPTY_TOKENS };
   }
   return totals;
 }
@@ -202,5 +224,6 @@ module.exports = {
   lastCompletedToolUseId,
   lastSeenModel,
   sessionLabel,
+  isEmptyTokens,
   EMPTY_TOKENS,
 };

@@ -74,4 +74,21 @@ function ensureAgentModelKeys(cwd) {
   if (changed) fs.writeFileSync(file, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
 }
 
-module.exports = { isTrackingEnabled, ensureSettingsScaffold, ensureAgentModelKeys };
+// Deterministic model lookup for an Agent tool call, keyed by subagent_type
+// (the stable key in AGENT_NAMES, e.g. "ask-me-practitioner") — used as a
+// code-enforced fallback when the calling turn didn't put a model directly
+// in tool_input.model. Falls back to agentModel.default, then null.
+function resolveAgentModel(cwd, agentKey) {
+  try {
+    const raw = fs.readFileSync(settingsPath(cwd), "utf8");
+    const parsed = JSON.parse(raw);
+    const agentModel = parsed?.agentModel;
+    if (!agentModel || typeof agentModel !== "object") return null;
+    if (agentKey && agentModel[agentKey]) return agentModel[agentKey];
+    return agentModel.default || null;
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { isTrackingEnabled, ensureSettingsScaffold, ensureAgentModelKeys, resolveAgentModel };

@@ -6,6 +6,7 @@ const {
   tokensForAgentTranscript,
   lastCompletedToolUseId,
   sessionLabel,
+  isEmptyTokens,
 } = require("./lib/transcript");
 const { readStdinJson } = require("./lib/io");
 const { logHookError } = require("./lib/debug-log");
@@ -55,10 +56,16 @@ async function main() {
   // Newer CLI versions attach the subagent's OWN transcript on SubagentStop,
   // separate from the parent's transcript_path — that's exact, un-shared
   // usage, so prefer it over the parent-turn-averaged fallback whenever
-  // present (older CLI versions or non-Agent tools won't have it).
-  const tokens = payload.agent_transcript_path
+  // present (older CLI versions or non-Agent tools won't have it). Its
+  // internal retry already covers a normal flush race; if it's still empty
+  // after that, fall back to the shared-turn estimate rather than logging a
+  // false zero.
+  let tokens = payload.agent_transcript_path
     ? await tokensForAgentTranscript(payload.agent_transcript_path)
     : await tokensForToolUse(resolvedTranscriptPath, toolUseId);
+  if (payload.agent_transcript_path && isEmptyTokens(tokens)) {
+    tokens = await tokensForToolUse(resolvedTranscriptPath, toolUseId);
+  }
   const sessionName = await sessionLabel(resolvedTranscriptPath);
   appendLogEntry(call.cwd || cwd, {
     time: new Date().toISOString(),
