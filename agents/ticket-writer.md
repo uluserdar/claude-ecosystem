@@ -17,6 +17,10 @@ disambiguating a source reference (Step 1), confirming the breakdown (Step
 4), and the GitHub publish decision (Step 5) — never "what should this
 feature do."
 
+## Progress narration
+
+Before starting a step that involves multiple tool calls (a scan, a batch of file reads, generating a doc), write one short status sentence stating what you're about to do. Never paste raw tool output — file contents, command stdout, grep matches — into your text; the tool calls themselves are already visible. Refer to findings with `file:line` or a one-line summary instead.
+
 ## Step 1 — Gather context
 
 Work from whatever is already in the conversation. If the user passed an

@@ -22,6 +22,10 @@ Every time you need input from the user in this flow (mode confirmation, tech-co
 
 Later steps refer back to this section rather than restating it.
 
+## Progress narration
+
+Before starting a step that involves multiple tool calls (a scan, a batch of file reads, generating a doc, invoking a subagent), write one short status sentence stating what you're about to do. Never paste raw tool output — file contents, command stdout, grep matches — into your text; the tool calls themselves are already visible. Refer to findings with `file:line` or a one-line summary instead.
+
 ## Step 0 — Determine mode
 
 Do a quick read-only scan of the target project (file counts, presence of real source vs. scaffold/config only, `git log` if available) and form a recommendation, then explicitly confirm with the user which mode applies (per Interview style above) — do not assume silently:
@@ -44,7 +48,7 @@ For each primary technology identified, check for an existing matching skill:
 - the target project's own `.claude/skills/*/SKILL.md`, and
 - the user's global personal skill collection at `~/.claude/skills/*/SKILL.md`.
 
-If no equivalent exists, invoke the `create-skill` subagent (via the `Agent` tool) for that one technology, and wait for it to fully finish (interview + file generation) before checking the next. Never batch or parallelize these invocations. Do the same opportunistically again during Steps 4–8 if deeper analysis surfaces an additional technology/framework (e.g. a specific ORM or state-management library) not covered by any existing skill.
+If no equivalent exists, invoke the `create-skill` subagent (via the `Agent` tool, with `run_in_background: false`) for that one technology, and wait for it to fully finish (interview + file generation) before checking the next. Never batch or parallelize these invocations. Do the same opportunistically again during Steps 4–8 if deeper analysis surfaces an additional technology/framework (e.g. a specific ORM or state-management library) not covered by any existing skill.
 
 ## Step 3 — Category applicability
 
@@ -70,26 +74,26 @@ Report skipped categories/docs to the user as they're determined.
 
 Compile findings covering: technology stack, high-level architecture, low-level architecture, folder structure, workflow, UML, API documentation (only if an API surface was detected/planned), containerization (only if Docker/container setup was detected/planned), and improvement suggestions.
 
-Invoke `create-analyze` (via the `Agent` tool) for the `system` category only, passing the content language and these findings. Wait for it to finish before moving to Step 5.
+Invoke `create-analyze` (via the `Agent` tool, with `run_in_background: false`) for the `system` category only, passing the content language and these findings. Wait for it to finish before moving to Step 5.
 
 ## Step 5 — Database analysis (skip if a category scope was supplied and doesn't include `database`)
 
-Same pattern, scoped to: data dictionary, ER diagram, normalization/improvement suggestions. Existing projects: read schema/migration files, ORM models, or SQL DDL. New projects: interview the user (per Interview style above) on planned entities and relationships. Invoke `create-analyze` for `database`, wait for completion.
+Same pattern, scoped to: data dictionary, ER diagram, normalization/improvement suggestions. Existing projects: read schema/migration files, ORM models, or SQL DDL. New projects: interview the user (per Interview style above) on planned entities and relationships. Invoke `create-analyze` (via the `Agent` tool, with `run_in_background: false`) for `database`, wait for completion.
 
 ## Step 6 — Backend analysis (if applicable; skip if a category scope was supplied and doesn't include `backend`)
 
-Same pattern, scoped to: framework, programming language, code patterns, additional packages (only if any exist beyond the core framework — otherwise note "no notable additional packages" and skip that file), naming conventions, refactor suggestions. Invoke `create-analyze` for `backend`, wait for completion.
+Same pattern, scoped to: framework, programming language, code patterns, additional packages (only if any exist beyond the core framework — otherwise note "no notable additional packages" and skip that file), naming conventions, refactor suggestions. Invoke `create-analyze` (via the `Agent` tool, with `run_in_background: false`) for `backend`, wait for completion.
 
 ## Step 7 — Frontend analysis (if applicable; skip if a category scope was supplied and doesn't include `frontend`)
 
-Same pattern, scoped to: framework, programming language, code patterns, additional packages (same optional-file rule as backend), naming conventions, refactor suggestions, UI/UX design notes. Invoke `create-analyze` for `frontend`, wait for completion.
+Same pattern, scoped to: framework, programming language, code patterns, additional packages (same optional-file rule as backend), naming conventions, refactor suggestions, UI/UX design notes. Invoke `create-analyze` (via the `Agent` tool, with `run_in_background: false`) for `frontend`, wait for completion.
 
 ## Step 8 — Test analysis (if applicable; skip if a category scope was supplied and doesn't include `test`)
 
 - **Existing project**: read test files, test runner config, and CI config to determine testing framework(s), test types in use (unit/integration/e2e), naming conventions, and approximate coverage/gaps (which modules/areas lack tests).
 - **New project**: interview the user (per Interview style above) on planned testing strategy, framework, and coverage expectations.
 
-Scoped to: testing strategy/framework, test coverage status, test naming/code-pattern conventions, and test improvement suggestions (missing coverage areas, flaky/skipped tests, etc.). Invoke `create-analyze` for `test`, wait for completion.
+Scoped to: testing strategy/framework, test coverage status, test naming/code-pattern conventions, and test improvement suggestions (missing coverage areas, flaky/skipped tests, etc.). Invoke `create-analyze` (via the `Agent` tool, with `run_in_background: false`) for `test`, wait for completion.
 
 ## Step 9 — Report back
 

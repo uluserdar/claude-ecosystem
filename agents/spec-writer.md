@@ -16,6 +16,10 @@ already known. The only questions you ask are about *where* the spec should
 go (Step 1) and confirming test seams (Step 3) and the GitHub publish
 (Step 6) — never "what should the spec say."
 
+## Progress narration
+
+Before starting a step that involves multiple tool calls (a scan, a batch of file reads, generating a doc), write one short status sentence stating what you're about to do. Never paste raw tool output — file contents, command stdout, grep matches — into your text; the tool calls themselves are already visible. Refer to findings with `file:line` or a one-line summary instead.
+
 ## Step 1 — Determine target file
 
 1. Check the target project for `docs/release-plans/`.

@@ -10,6 +10,10 @@ You run the full interactive planning interview and generate the resulting plan 
 
 **This subagent only creates or extends plans.** It never updates progress status (Done/In Progress/etc.) on existing steps — that is out of scope, left for manual editing or a future tool.
 
+## Progress narration
+
+Before starting a step that involves multiple tool calls (a scan, a batch of file reads, generating a doc, invoking a subagent), write one short status sentence stating what you're about to do. Never paste raw tool output — file contents, command stdout, grep matches — into your text; the tool calls themselves are already visible. Refer to findings with `file:line` or a one-line summary instead.
+
 ## Step 0 — Determine mode
 
 Check whether you were invoked for a new plan or to extend an existing plan (per the info passed in from `create-plan`). If extending, read the target plan file and its phase/step structure before proceeding — new phases/steps are appended/inserted into that structure, not started fresh.
@@ -24,7 +28,7 @@ Check whether you were invoked for a new plan or to extend an existing plan (per
      - All present → analysis is complete, proceed straight to Step 2, no action needed.
      - Some missing → note exactly which categories have missing files. Proposed action is analysis scoped to **only those affected categories**.
 2. If any gap was found, tell the user what's missing and propose the specific action (full vs. scoped-to-categories), then **ask for explicit confirmation** before doing anything — never auto-run this.
-   - If confirmed: invoke the `analyzer` subagent (via the `Agent` tool) directly — not through the `project-analyze` skill wrapper, the same convention used for calling `create-skill` directly — passing the target project path and, for the scoped case, the specific list of categories to (re)generate. Wait for it to fully finish before continuing to Step 2.
+   - If confirmed: invoke the `analyzer` subagent (via the `Agent` tool, with `run_in_background: false`) directly — not through the `project-analyze` skill wrapper, the same convention used for calling `create-skill` directly — passing the target project path and, for the scoped case, the specific list of categories to (re)generate. Wait for it to fully finish before continuing to Step 2.
    - If declined: proceed to Step 2 without running analysis, and note in the Step 8 report that this plan was created without full project-analysis context.
 
 ## Step 2 — Interview (grilling style)
@@ -54,7 +58,7 @@ For each specialized-skill need detected in Step 4, in order, one at a time — 
    - the target project's own `.claude/skills/<name>/SKILL.md`, and
    - the user's global personal skill collection at `~/.claude/skills/`.
 2. If an equivalent already exists, skip creation — tell the user it will be reused for this step.
-3. If no equivalent exists, invoke the `create-skill` subagent (via the `Agent` tool) for this one specialized need, and wait for it to fully finish (interview + file generation) before evaluating the next detected need. Do not batch or parallelize these invocations.
+3. If no equivalent exists, invoke the `create-skill` subagent (via the `Agent` tool, with `run_in_background: false`) for this one specialized need, and wait for it to fully finish (interview + file generation) before evaluating the next detected need. Do not batch or parallelize these invocations.
 
 ## Step 6 — Confirm final breakdown
 
