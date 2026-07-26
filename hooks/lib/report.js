@@ -21,6 +21,15 @@ function addTotals(totals, entry) {
   totals.tokens.cache_read += t.cache_read || 0;
 }
 
+function mergeTotals(target, totals) {
+  target.count += totals.count;
+  target.duration_ms += totals.duration_ms;
+  target.tokens.input += totals.tokens.input;
+  target.tokens.output += totals.tokens.output;
+  target.tokens.cache_creation += totals.tokens.cache_creation;
+  target.tokens.cache_read += totals.tokens.cache_read;
+}
+
 async function readEntries(filePath) {
   const entries = [];
   const rl = readline.createInterface({
@@ -46,33 +55,22 @@ function formatDuration(ms) {
   return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
-function formatTokens(t) {
-  return `${t.input.toLocaleString()} / ${t.output.toLocaleString()} / ${t.cache_creation.toLocaleString()} / ${t.cache_read.toLocaleString()}`;
+function tokenCells(t) {
+  return [t.input, t.output, t.cache_creation, t.cache_read].map((n) => n.toLocaleString());
 }
 
-function buildFlatTable(entries) {
-  const flat = new Map();
-  for (const entry of entries) {
-    const k = key(entry.type, entry.name);
-    if (!flat.has(k)) flat.set(k, { type: entry.type, name: entry.name, ...emptyTotals() });
-    addTotals(flat.get(k), entry);
-  }
-  const rows = [...flat.values()].sort((a, b) => b.count - a.count);
-
-  const lines = [
-    "| Type | Name | Calls | Total Duration | Tokens (in/out/cache-create/cache-read) | Status |",
-    "|---|---|---|---|---|---|",
-  ];
-  for (const row of rows) {
-    lines.push(
-      `| ${row.type} | ${row.name} | ${row.count} | ${formatDuration(row.duration_ms)} | ${formatTokens(row.tokens)} | |`
-    );
-  }
-  return lines.join("\n");
+function splitKey(k) {
+  const [type, ...nameParts] = k.split(":");
+  return { type, name: nameParts.join(":") };
 }
 
-function buildHierarchy(entries) {
-  const edges = new Map(); // parentKey|"root" -> Map(childKey -> totals)
+// parentKey|"root" -> Map(childKey -> totals). Each entry's `parent` only
+// records the immediate ancestor's (type, name) — not a full instance path —
+// so calls with identical (type, name) but different real ancestors can't be
+// told apart. Acceptable for now; would need ancestor-chain ids in the log
+// schema to fix properly.
+function buildEdges(entries) {
+  const edges = new Map();
   for (const entry of entries) {
     const parentKey = entry.parent ? key(entry.parent.type, entry.parent.name) : "root";
     const childKey = key(entry.type, entry.name);
@@ -81,23 +79,72 @@ function buildHierarchy(entries) {
     if (!children.has(childKey)) children.set(childKey, emptyTotals());
     addTotals(children.get(childKey), entry);
   }
+  return edges;
+}
 
-  const lines = [];
-  function render(parentKey, depth) {
-    const children = edges.get(parentKey);
-    if (!children) return;
-    for (const [childKey, totals] of [...children.entries()].sort((a, b) => b[1].count - a[1].count)) {
-      const [type, ...nameParts] = childKey.split(":");
-      const name = nameParts.join(":");
-      const indent = "  ".repeat(depth);
+// Recursively merges every descendant of parentKey into flatMap (keyed by
+// childKey, for the per-skill sub-table) and into rollup (single accumulator,
+// for replacing the top-level row's own near-zero self stats).
+function collectSubtree(edges, parentKey, flatMap, rollup) {
+  const children = edges.get(parentKey);
+  if (!children) return;
+  for (const [childKey, totals] of children) {
+    if (!flatMap.has(childKey)) flatMap.set(childKey, emptyTotals());
+    mergeTotals(flatMap.get(childKey), totals);
+    mergeTotals(rollup, totals);
+    collectSubtree(edges, childKey, flatMap, rollup);
+  }
+}
+
+function buildSkillSections(entries) {
+  const edges = buildEdges(entries);
+  const topLevel = edges.get("root") || new Map();
+
+  const rows = [...topLevel.entries()]
+    .map(([topKey, selfTotals]) => {
+      const rollup = { ...emptyTotals(), tokens: { ...emptyTotals().tokens } };
+      const subtree = new Map();
+      collectSubtree(edges, topKey, subtree, rollup);
+      mergeTotals(rollup, selfTotals);
+      return { topKey, calls: selfTotals.count, rollup, subtree };
+    })
+    .sort((a, b) => b.calls - a.calls);
+
+  const grandTotal = emptyTotals();
+  for (const row of rows) mergeTotals(grandTotal, { ...row.rollup, count: row.calls });
+
+  const lines = [
+    "## Skills",
+    "",
+    "| Skill | Calls | Total Duration | Input | Output | Cache Create | Cache Read |",
+    "|---|---|---|---|---|---|---|",
+  ];
+  for (const row of rows) {
+    const { name } = splitKey(row.topKey);
+    lines.push(
+      `| ${name} | ${row.calls} | ${formatDuration(row.rollup.duration_ms)} | ${tokenCells(row.rollup.tokens).join(" | ")} |`
+    );
+  }
+  lines.push(
+    `| **Total** | ${grandTotal.count} | ${formatDuration(grandTotal.duration_ms)} | ${tokenCells(grandTotal.tokens).join(" | ")} |`
+  );
+
+  for (const row of rows) {
+    if (row.subtree.size === 0) continue;
+    const { name } = splitKey(row.topKey);
+    lines.push("", `### ${name}`, "");
+    lines.push("| Agent | Calls | Duration | Input | Output | Cache Create | Cache Read |");
+    lines.push("|---|---|---|---|---|---|---|");
+    const subRows = [...row.subtree.entries()].sort((a, b) => b[1].count - a[1].count);
+    for (const [childKey, totals] of subRows) {
+      const { name: childName } = splitKey(childKey);
       lines.push(
-        `${indent}- **${name}** (${type}) — ${totals.count} calls, ${formatDuration(totals.duration_ms)}, tokens ${formatTokens(totals.tokens)}`
+        `| ${childName} | ${totals.count} | ${formatDuration(totals.duration_ms)} | ${tokenCells(totals.tokens).join(" | ")} |`
       );
-      render(childKey, depth + 1);
     }
   }
-  render("root", 0);
-  return lines.length ? lines.join("\n") : "_No data yet._";
+
+  return lines.join("\n");
 }
 
 async function generateReport(cwd) {
@@ -124,13 +171,7 @@ async function generateReport(cwd) {
 
 Generated: ${generatedAt}
 
-## Totals
-
-${buildFlatTable(entries)}
-
-## Call tree
-
-${buildHierarchy(entries)}
+${buildSkillSections(entries)}
 `;
 
   fs.mkdirSync(logDir(cwd), { recursive: true });
