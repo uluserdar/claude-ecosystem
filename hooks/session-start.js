@@ -2,7 +2,7 @@ const { listOtherSessionStateFiles, loadState, saveState, deleteState } = requir
 const { appendLogEntry } = require("./lib/log");
 const { tokensForToolUse, sessionLabel } = require("./lib/transcript");
 const { readStdinJson } = require("./lib/io");
-const { isTrackingEnabled, ensureSettingsScaffold } = require("./lib/settings");
+const { isTrackingEnabled, ensureSettingsScaffold, ensureAgentModelKeys } = require("./lib/settings");
 const { ensureGitignoreEntries } = require("./lib/gitignore");
 const { logHookError } = require("./lib/debug-log");
 
@@ -55,10 +55,12 @@ async function main() {
 
   if (payload.cwd) {
     try {
-      // Scaffolds the settings file OFF (opt-in stays opt-in) and makes
-      // sure this project's own .gitignore won't accidentally track
-      // generated usage-tracking/tickets output.
+      // Scaffolds the settings file OFF (opt-in stays opt-in), fills in
+      // any missing agentModel keys so the user only has to edit values,
+      // and makes sure this project's own .gitignore won't accidentally
+      // track generated usage-tracking/tickets output.
       ensureSettingsScaffold(payload.cwd);
+      ensureAgentModelKeys(payload.cwd);
       ensureGitignoreEntries(payload.cwd);
     } catch (err) {
       // best effort — never block session start on this

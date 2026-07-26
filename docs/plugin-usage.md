@@ -111,3 +111,10 @@ run on, with per-agent overrides:
 - Unlike usage tracking, this isn't read by the JS hooks — the skill/agent
   instructions that dispatch each subagent read the file themselves and
   pass the resolved value as the `Agent` tool's `model` parameter.
+- `SessionStart` auto-fills any missing `agentModel` keys (the `default`
+  fallback plus every known agent name) with `null` — additive only, never
+  overwrites a value you've already set and never touches other keys like
+  `usageTracking`. So you only ever need to edit values in place; the key
+  names themselves are kept in sync automatically as the plugin adds new
+  agents. A `null` value means "no override," identical to the key being
+  absent.
